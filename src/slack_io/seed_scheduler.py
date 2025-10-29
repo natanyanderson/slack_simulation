@@ -4,15 +4,22 @@ from .slack_client import app as bolt_app
 from .persona_registry import PERSONAS, CHANNEL_NAME_TO_ID
 from .conductor import mark_persona_cooldown, schedule_followups_for_thread
 from .agent_engine import client as llm_client, MODEL
+from .user_registry import load_user_personas
+from .slack_user_post import user_post_message
+
+USER_PERSONAS = load_user_personas()
 
 def _post_root(persona: str, channel_name: str, text:str) -> Optional[str]:
     ch_id = CHANNEL_NAME_TO_ID.get(channel_name)
     if not ch_id:
         return None
-    username = PERSONAS[persona]["username"]
-    icon = PERSONAS[persona]["icon"]
-    resp = bolt_app.client.chat_postMessage(channel=ch_id, text=text, username=username, icon_emoji=icon)
-    ts = resp["ts"]
+    # Post as the user (xoxp token) instead of bot with username/icon override
+    identity = USER_PERSONAS.get(persona)
+    if not identity:
+        return None
+    
+    resp = user_post_message(identity, ch_id, text, thread_ts=None)
+    ts = resp["ts"] if resp else None
     mark_persona_cooldown(persona)
     return ts
 
@@ -30,14 +37,17 @@ def _digest_recent(ch_id: str, limit: int = 12) -> str:
     
 def _llm_root(persona: str, channel_name: str, prompt_goal: str, digest: str) -> str:
     sys = (f"You are {persona} posting a new *root* message in #{channel_name} of an internal Slack workspace. "
-           f"Be concise (1–3 sentences), concrete, and actionable.")
+           f"Be concise (1–3 sentences), concrete, and actionable.\n"
+           f"IMPORTANT: Acknowledge prior points briefly, then add one new fact, question, or decision.")
     user = (f"Goal: {prompt_goal}\n\n"
             f"Recent context (optional):\n{digest}\n\n"
             f"Rules:\n- Start a new thread (no replies).\n- No citations or IDs.\n")
     resp = llm_client.chat.completions.create(
         model=MODEL,
         messages=[{"role":"system","content":sys},{"role":"user","content":user}],
-        temperature=0.5,
+        temperature=0.9,  # Higher temperature for creative, varied responses
+        presence_penalty=0.6,  # Penalize repetitive topics/concepts
+        frequency_penalty=0.3,  # Penalize word/token repetition
         max_tokens=120,
     )
     return resp.choices[0].message.content.strip()

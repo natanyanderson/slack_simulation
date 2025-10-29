@@ -1,0 +1,22 @@
+# Scenario: Checkout Service Outage
+# Production checkout issues affecting revenue
+
+id: "S002_checkout_outage"
+title: "Checkout service experiencing intermittent failures"
+description: "Payment processing failures affecting customer checkout"
+
+channels: ["sre-ops", "eng-backend", "product", "deployments"]
+
+initial_context: |
+  Checkout service is returning 500 errors intermittently. 
+  Customer complaint rate increased 40%. Revenue impact estimated at $2k/hour.
+
+personas: ["Mike_BE", "Nina_SRE", "Gabriella_PM", "Tara_TPM"]
+
+opener:
+  persona: "Gabriella_PM"
+  channel: "product"
+  message: "Alert: checkout failures spiking. Customer complaints up 40%. Impacting revenue. @Nina_SRE @Mike_BE can we investigate?"
+
+keywords: ["checkout", "payment", "500 errors", "circuit breaker", "rollback", "service health"]
+

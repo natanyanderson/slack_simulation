@@ -8,8 +8,13 @@ from .slack_client import app as bolt_app
 from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
 from .agent_engine import generate_reply
 from .queue import ChannelQueue
+from .user_registry import load_user_personas
+from .slack_user_post import user_post_message
 
 logger = logging.getLogger(__name__)
+
+# Load user personas for posting as real users
+USER_PERSONAS = load_user_personas()
 
 # Track what's been posted to avoid duplicating
 posted_messages = {}  # track recent messages
@@ -95,17 +100,15 @@ def autonomous_turn():
             
             post_text = result["text"]
             
-            # Post to Slack in thread
-            username = persona_cfg["username"]
-            icon = persona_cfg["icon"]
+            # Post to Slack in thread AS THE USER (xoxp token)
+            identity = USER_PERSONAS.get(persona)
+            if not identity:
+                logger.warning(f"[AUTONOMOUS] No user token for {persona}; skipping reply in #{channel_name}")
+                return
             
-            bolt_app.client.chat_postMessage(
-                channel=channel_id,
-                text=post_text,
-                username=username,
-                icon_emoji=icon,
-                thread_ts=thread_ts
-            )
+            user_post_message(identity, channel_id, post_text, thread_ts=thread_ts)
+            
+            username = persona_cfg["username"]
             
             logger.info(f"[AUTONOMOUS] {persona} replied in thread in #{channel_name}")
             
@@ -140,18 +143,16 @@ def autonomous_turn():
             
             post_text = result["text"]
             
-            # Post to Slack
+            # Post to Slack AS THE USER (xoxp token)
+            identity = USER_PERSONAS.get(persona)
+            if not identity:
+                logger.warning(f"[AUTONOMOUS] No user token for {persona}; skipping message in #{channel_name}")
+                return
+            
+            resp = user_post_message(identity, channel_id, post_text, thread_ts=None)
+            
+            ts = resp["ts"] if resp else None
             username = persona_cfg["username"]
-            icon = persona_cfg["icon"]
-            
-            resp = bolt_app.client.chat_postMessage(
-                channel=channel_id,
-                text=post_text,
-                username=username,
-                icon_emoji=icon
-            )
-            
-            ts = resp["ts"]
             
             logger.info(f"[AUTONOMOUS] {persona} posted new message in #{channel_name}")
             

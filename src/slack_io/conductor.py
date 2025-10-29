@@ -2,11 +2,18 @@
 import time, random, json, logging
 from typing import Dict, List
 from .slack_client import app as bolt_app
-from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME
+from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
+from .user_registry import load_user_personas
+from .slack_user_post import user_post_message
 from .agent_engine import generate_reply
 from .queue import ChannelQueue
+from .progression import load_states, get_or_create_state, advance_phase, PHASE_ORDER
 
 logger = logging.getLogger(__name__)
+
+STRICT_HINT = "\n(If you did not include [[ref:TIMESTAMP]] for at least one context line, add them now.)"
+USER_PERSONAS = load_user_personas()  # persona_name -> PersonaIdentity (with xoxp token)
+THREAD_STATES = load_states()  # Global thread states cache
 
 # No strict citation requirements - let messages flow naturally
 
@@ -21,9 +28,137 @@ PERSONA_COOLDOWN_S = 12                 # Reduced from 25s to 12s for more activ
 SELF_REPLY_GRACE_S = 2                  # Reduced from 4s to 2s for quicker replies
 MAX_ACTIVE_THREADS = 8                  # Increased from 5 to 8 for more concurrent threads
 
+# Time-based response latency
+WORK_HOURS_MIN_DELAY = 15  # Minimum 15s during work hours
+WORK_HOURS_MAX_DELAY = 120  # Maximum 120s during work hours
+NON_OWNER_DELAY_MULTIPLIER = 1.5  # Non-owners take 1.5x longer
+WEEKEND_DELAY_MULTIPLIER = 3.0  # Weekend responses are much slower
+
+# Handoff & ownership tracking
+OWNER_SILENCE_THRESHOLD_M = 15  # If owner silent for N minutes, escalate
+
 # Proactive posting (to create more conversation opportunities)
 PROACTIVE_POST_INTERVAL_S = 90  # Reduced from 180s to 90s - check every 1.5 minutes
 LAST_PROACTIVE_CHECK = 0  # Last time we checked for proactive posts
+
+# Track persona message counts per thread
+PERSONA_THREAD_MSG_COUNT: Dict[str, Dict[str, int]] = {}  # thread_key -> {persona: count}
+
+# Track closed threads to prevent follow-ups
+CLOSED_THREAD_FOLLOWUPS: set = set()  # Set of closed thread keys
+
+# Track message lengths for variation
+LAST_MESSAGE_LENGTH: str = "medium"  # Track to alternate
+
+def maybe_add_lurker_reactions(channel_id: str, thread_ts: str):
+    """Randomly add reactions from lurkers to make threads feel alive"""
+    import random
+    
+    if random.random() > 0.3:  # 30% chance
+        return
+    
+    # Pick a random lurker who isn't the owner
+    from .persona_registry import PERSONAS
+    all_personas = list(PERSONAS.keys())
+    
+    # Get thread state to avoid owner
+    state = get_state(channel_id, thread_ts, THREAD_STATES)
+    if state and state.owner:
+        all_personas = [p for p in all_personas if p != state.owner]
+    
+    if not all_personas:
+        return
+    
+    lurker = random.choice(all_personas[:3])  # Pick from first 3 eligible
+    identity = USER_PERSONAS.get(lurker)
+    
+    if identity and random.random() > 0.5:  # 50% chance to react
+        reactions = [":+1:", ":eyes:", ":white_check_mark:", ":rocket:"]
+        reaction = random.choice(reactions)
+        
+        try:
+            identity.client.reactions_add(channel=channel_id, timestamp=thread_ts, name=reaction)
+            logger.info(f"[REACTIONS] {lurker} added {reaction} to thread")
+        except Exception as e:
+            logger.debug(f"[REACTIONS] Error adding reaction: {e}")
+
+def is_within_office_hours(persona: str) -> bool:
+    """Check if current time is within persona's office hours"""
+    from datetime import datetime
+    from .persona_registry import PERSONAS
+    
+    persona_cfg = PERSONAS.get(persona)
+    if not persona_cfg or "office_hours" not in persona_cfg:
+        return True  # Default to allowed
+    
+    # Special case: SRE is available 24/7 for pages
+    if persona == "Nina_SRE":
+        return True
+    
+    start_hour, end_hour = persona_cfg["office_hours"]
+    current_hour = datetime.now().hour
+    current_weekday = datetime.now().weekday()  # 0=Monday, 6=Sunday
+    
+    # Auto-silence nights/weekends (except SRE)
+    if current_weekday >= 5:  # Saturday or Sunday
+        return False
+    
+    return start_hour <= current_hour < end_hour
+
+def calculate_response_latency(persona: str, is_owner: bool = False) -> float:
+    """Calculate response latency based on persona and owner status"""
+    import random
+    from datetime import datetime
+    
+    # Base delay during work hours
+    base_delay = random.uniform(WORK_HOURS_MIN_DELAY, WORK_HOURS_MAX_DELAY)
+    
+    # Non-owners take longer
+    if not is_owner:
+        base_delay *= NON_OWNER_DELAY_MULTIPLIER
+    
+    # Weekend responses are much slower (if SRE)
+    current_weekday = datetime.now().weekday()
+    if current_weekday >= 5 and persona != "Nina_SRE":
+        base_delay *= WEEKEND_DELAY_MULTIPLIER
+    
+    return base_delay
+
+def persona_quota_exceeded(persona: str, thread_state) -> bool:
+    """Check if persona has exceeded their quota for this phase"""
+    from .persona_registry import PERSONAS
+    from .progression import PHASE_ORDER
+    
+    persona_cfg = PERSONAS.get(persona)
+    if not persona_cfg or "quota_per_phase" not in persona_cfg:
+        return False  # Default to not exceeded
+    
+    quota = persona_cfg["quota_per_phase"]
+    
+    # Count messages from this persona in this thread
+    thread_key = f"{thread_state.chan}:{thread_state.root_ts}"
+    if thread_key not in PERSONA_THREAD_MSG_COUNT:
+        PERSONA_THREAD_MSG_COUNT[thread_key] = {}
+    
+    persona_count = PERSONA_THREAD_MSG_COUNT[thread_key].get(persona, 0)
+    
+    # Reset count when phase changes
+    if thread_state.phase not in PERSONA_THREAD_MSG_COUNT.get("phase", ""):
+        PERSONA_THREAD_MSG_COUNT[thread_key] = {persona: 0}
+        return False
+    
+    return persona_count >= quota
+
+def role_should_speak(persona: str, phase: str) -> bool:
+    """Check if persona's role should speak in this phase"""
+    from .persona_registry import PERSONAS
+    
+    persona_cfg = PERSONAS.get(persona)
+    if not persona_cfg or "role_triggers" not in persona_cfg:
+        return True  # Default to allowed
+    
+    role_triggers = persona_cfg["role_triggers"]
+    return phase in role_triggers
 
 def _queue_for(channel_id: str) -> ChannelQueue:
     if channel_id not in CHANNEL_QUEUES:
@@ -265,17 +400,14 @@ def maybe_trigger_proactive_post():
         from .agent_engine import generate_reply
         result = generate_reply(persona, ch_name, ch_id, prompt, thread_ts=None)
         
-        # Post it
-        username = PERSONAS[persona]["username"]
-        icon = PERSONAS[persona]["icon"]
-        
-        _queue_for(ch_id).enqueue(
-            bolt_app.client.chat_postMessage,
-            channel=ch_id, text=result["text"], username=username, icon_emoji=icon
-        )
-        
+        # Post it AS THE USER (xoxp)
+        identity = USER_PERSONAS.get(persona)
+        if not identity:
+            logger.warning(f"[CONDUCTOR] No user token for {persona}; skipping proactive post in #{ch_name}")
+            return
+        user_post_message(identity, ch_id, result["text"], thread_ts=None)
         mark_persona_cooldown(persona)
-        logger.info(f"[CONDUCTOR] {persona} posted proactive message in #{ch_name}")
+        logger.info(f"[CONDUCTOR] {persona} (user) posted proactive message in #{ch_name}")
         
     except Exception as e:
         logger.error(f"[CONDUCTOR] Error in proactive post: {e}", exc_info=True)
@@ -302,6 +434,153 @@ def _channel_name_inverse(ch_name: str) -> str:
         pass
     return None
 
+def detect_fix_complete(text: str) -> bool:
+    """Detect if a FIX message contains PR link and deployment artifact"""
+    import re
+    
+    # Look for PR links: #123, PR#456, pull/123
+    pr_pattern = r'#\d+|PR\s*#\d+|pull/\d+'
+    has_pr = bool(re.search(pr_pattern, text))
+    
+    # Look for deployment artifacts: deployed, merged, released, version numbers
+    deployment_keywords = ['deployed', 'merged', 'released', 'version', 'v\d+\.\d+']
+    has_deployment = any(re.search(kw, text, re.IGNORECASE) for kw in deployment_keywords)
+    
+    return has_pr and has_deployment
+
+def is_positive_review(text: str) -> bool:
+    """Detect if review message is positive/approving"""
+    positive_keywords = ['lgtm', 'approved', 'looks good', 'verified', 'passed', 'confirmed', 'working', 'resolve']
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in positive_keywords)
+
+def trigger_review_phase(state, ch_name: str, channel_id: str, thread_ts: str, fix_persona: str):
+    """Trigger REVIEW phase when FIX is complete"""
+    from .progression import advance_phase, reassign_owner
+    from .agent_engine import generate_reply
+    import random
+    
+    # Advance to REVIEW phase
+    advance_phase(state)
+    
+    # Reassign to reviewer (not the fixer)
+    reviewers = ["Kevin_QA", "Nina_SRE", "Ravi_Staff"]
+    reviewers = [r for r in reviewers if r != fix_persona]
+    reviewer = random.choice(reviewers)
+    reassign_owner(state, reviewer)
+    
+    # Generate review request
+    message = f"Fix complete with PR and deployment. @{reviewer} please review and verify."
+    result = generate_reply(
+        "Tara_TPM",
+        ch_name,
+        channel_id,
+        message,
+        thread_ts=thread_ts,
+        phase_context=""
+    )
+    
+    identity = USER_PERSONAS.get("Tara_TPM")
+    if identity:
+        try:
+            user_post_message(identity, channel_id, result["text"], thread_ts=thread_ts)
+            logger.info(f"[CLOSEOUT] Triggered REVIEW phase with reviewer {reviewer}")
+        except Exception as e:
+            logger.error(f"[CLOSEOUT] Error triggering review: {e}")
+
+def trigger_postmortem_and_close(state, ch_name: str, channel_id: str, thread_ts: str):
+    """Trigger POSTMORTEM phase and then close the thread"""
+    from .progression import advance_phase, reassign_owner, PHASE_ORDER
+    from .agent_engine import generate_reply
+    import random
+    
+    # Advance to POSTMORTEM phase
+    advance_phase(state)
+    
+    # Reassign to PM or TPM for postmortem
+    postmortem_persona = random.choice(["Gabriella_PM", "Tara_TPM"])
+    reassign_owner(state, postmortem_persona)
+    
+    # Generate postmortem request
+    message = f"Review approved. Post brief postmortem summary: root cause, fix, and prevention."
+    result = generate_reply(
+        postmortem_persona,
+        ch_name,
+        channel_id,
+        message,
+        thread_ts=thread_ts,
+        phase_context=""
+    )
+    
+    identity = USER_PERSONAS.get(postmortem_persona)
+    if identity:
+        try:
+            user_post_message(identity, channel_id, result["text"], thread_ts=thread_ts)
+            logger.info(f"[CLOSEOUT] Triggered POSTMORTEM phase with {postmortem_persona}")
+            
+            # Close the thread after brief delay
+            def close_thread():
+                import time as time_module
+                time_module.sleep(10)  # Wait 10s for any final message
+                
+                # Advance to CLOSED
+                advance_phase(state)
+                closed_key = f"{state.chan}:{state.root_ts}"
+                CLOSED_THREAD_FOLLOWUPS.add(closed_key)
+                logger.info(f"[CLOSEOUT] Thread {closed_key} set to CLOSED")
+            
+            import threading
+            threading.Thread(target=close_thread, daemon=True).start()
+        except Exception as e:
+            logger.error(f"[CLOSEOUT] Error triggering postmortem: {e}")
+
+def escalate_ownership(state, ch_name: str, channel_id: str, thread_ts: str):
+    """Escalate or reassign ownership when owner is silent"""
+    from .progression import reassign_owner, advance_phase, reset_phase
+    from .agent_engine import generate_reply
+    import random
+    
+    logger.warning(f"[HANDOFF] Owner {state.owner} has been silent in phase {state.phase}")
+    
+    # Choose escalation persona (TPM or Staff)
+    escalation_personas = ["Tara_TPM", "Ravi_Staff"]
+    escalation_persona = random.choice(escalation_personas)
+    
+    # Determine action based on phase
+    if state.phase in ["DETECT", "TRIAGE"]:
+        # Early phase: reassign to appropriate owner based on issue type
+        new_owner = random.choice(["Mike_BE", "Nina_SRE", "Kevin_QA"])
+        reassign_owner(state, new_owner)
+        
+        message = f"@{state.owner} has been silent. Reassigning ownership to @{new_owner}. Please take action on this issue."
+    elif state.phase in ["HYPOTHESIS", "EXPERIMENT", "FIX"]:
+        # Mid phase: escalate with urgency
+        message = f"@{state.owner} - blocking on your progress in {state.phase} phase. Status update needed."
+    else:
+        # Late phase: try to advance or close
+        message = f"@{state.owner} - need confirmation on {state.phase} status. Can we move forward?"
+    
+        # Generate and post escalation message
+    result = generate_reply(
+        escalation_persona,
+        ch_name,
+        channel_id,
+        message,
+        thread_ts=thread_ts,
+        phase_context=""
+    )
+    
+    identity = USER_PERSONAS.get(escalation_persona)
+    if identity:
+        try:
+            user_post_message(identity, channel_id, result["text"], thread_ts=thread_ts)
+            logger.info(f"[HANDOFF] {escalation_persona} posted escalation for silent owner {state.owner}")
+            
+            # Optionally add reactions from lurkers
+            maybe_add_lurker_reactions(channel_id, thread_ts)
+        except Exception as e:
+            logger.error(f"[HANDOFF] Error posting escalation: {e}")
+
 def _get_recent_digest(ch_id: str, limit: int = 8) -> str:
     """Get recent messages as a digest string"""
     try:
@@ -320,29 +599,111 @@ def _get_recent_digest(ch_id: str, limit: int = 8) -> str:
 def _schedule_reply(persona: str, ch_name: str, channel_id: str, event_text: str, thread_ts: str, delay_s: float, is_thread: bool = False):
     def _do():
         logger.info(f"[CONDUCTOR] {persona} replying {'in thread' if is_thread else 'top-level'} in #{ch_name}")
-        
-        # generate natural reply
-        out = generate_reply(persona, ch_name, channel_id, event_text, thread_ts=thread_ts if is_thread else None)
-        visible_text = out["text"]
 
-        # post - only use thread_ts if this is actually a thread
-        username = PERSONAS[persona]["username"]
-        icon = PERSONAS[persona]["icon"]
-        
+        # Initialize or update thread state and create phase guidance
+        phase_context = ""
+        hidden_guidance = ""
         if is_thread:
-            _queue_for(channel_id).enqueue(
-                bolt_app.client.chat_postMessage,
-                channel=channel_id, text=visible_text, username=username, icon_emoji=icon, thread_ts=thread_ts
-            )
-        else:
-            # Top-level reply in channel
-            _queue_for(channel_id).enqueue(
-                bolt_app.client.chat_postMessage,
-                channel=channel_id, text=visible_text, username=username, icon_emoji=icon
-            )
+            state = get_or_create_state(channel_id, thread_ts, persona, THREAD_STATES)
+            
+            # Apply persona guards
+            if not is_within_office_hours(persona):
+                logger.info(f"[CONDUCTOR] Skipping {persona} - outside office hours")
+                return
+            
+            if persona_quota_exceeded(persona, state):
+                logger.info(f"[CONDUCTOR] Skipping {persona} - quota exceeded for phase {state.phase}")
+                return
+            
+            if not role_should_speak(persona, state.phase):
+                logger.info(f"[CONDUCTOR] Skipping {persona} - role not triggered for phase {state.phase}")
+                return
+            
+            # Increment persona message count
+            thread_key = f"{channel_id}:{thread_ts}"
+            if thread_key not in PERSONA_THREAD_MSG_COUNT:
+                PERSONA_THREAD_MSG_COUNT[thread_key] = {}
+            PERSONA_THREAD_MSG_COUNT[thread_key][persona] = PERSONA_THREAD_MSG_COUNT[thread_key].get(persona, 0) + 1
+            
+            # Update owner activity timestamp if this persona is the owner
+            if state.owner == persona:
+                state.last_owner_activity = time.time()
+                THREAD_STATES[thread_key] = state
+            
+            # Check for owner silence and trigger escalation if needed
+            if state.owner and persona in ["Tara_TPM", "Ravi_Staff"]:
+                time_since_owner_activity = (time.time() - state.last_owner_activity) / 60  # in minutes
+                if time_since_owner_activity > OWNER_SILENCE_THRESHOLD_M:
+                    # Owner has been silent - trigger escalation/reassignment
+                    escalate_ownership(state, ch_name, channel_id, thread_ts)
+                    return
+            
+            # Extract incomplete checklist items
+            incomplete_items = [item for item in state.checklist if "✅" not in item]
+            
+            # Create visible phase context
+            phase_context = f"[THREAD PHASE: {state.phase}] Current owner: {state.owner or 'unassigned'}"
+            if state.checklist:
+                all_items = ", ".join(state.checklist[-3:])  # Show last 3 items
+                phase_context += f". Checklist: {all_items}"
+            
+            # Create hidden guidance for LLM
+            if incomplete_items or state.phase != "CLOSED":
+                next_phase_idx = PHASE_ORDER.index(state.phase)
+                next_phase = PHASE_ORDER[next_phase_idx + 1] if next_phase_idx < len(PHASE_ORDER) - 1 else None
+                
+                hidden_guidance = f"\n[INTERNAL GUIDANCE] Current thread phase: {state.phase}"
+                if incomplete_items:
+                    hidden_guidance += f"\nIncomplete tasks: {', '.join(incomplete_items)}. Consider completing one of these or providing progress update."
+                if next_phase:
+                    hidden_guidance += f"\nPossible next phase: {next_phase}. Advance to this phase if you have concrete results (fix, data, decision)."
+                hidden_guidance += "\n"
         
+        # generate grounded reply (with strict retry if no refs were cited)
+        # Combine phase context and hidden guidance
+        full_context = phase_context + hidden_guidance if hidden_guidance else phase_context
+        out = generate_reply(persona, ch_name, channel_id, event_text, thread_ts=thread_ts if is_thread else None, phase_context=full_context)
+        visible_text = out["text"]
+        supports = out.get("supports", [])
+
+        # If this is a threaded reply and we failed to cite anything, try once more with a stricter cue.
+        if is_thread and not supports:
+            out2 = generate_reply(persona, ch_name, channel_id, event_text + STRICT_HINT, thread_ts=thread_ts)
+            if out2.get("supports"):
+                visible_text, supports = out2["text"], out2["supports"]
+
+        # Check if thread is CLOSED - only allow one follow-up
+        if is_thread:
+            closed_thread_key = f"{channel_id}:{thread_ts}"
+            if closed_thread_key in CLOSED_THREAD_FOLLOWUPS:
+                logger.info(f"[CONDUCTOR] Thread {closed_thread_key} is closed, blocking additional follow-ups")
+                return
+            if state.phase == "CLOSED":
+                # Mark as having received a follow-up
+                CLOSED_THREAD_FOLLOWUPS.add(closed_thread_key)
+        
+        # Post AS THE USER (xoxp); do not set username/icon (Slack uses the user's profile)
+        identity = USER_PERSONAS.get(persona)
+        if not identity:
+            logger.warning(f"[CONDUCTOR] No user token for {persona}; skipping reply in #{ch_name}")
+            return
+
+        if is_thread:
+            user_post_message(identity, channel_id, visible_text, thread_ts=thread_ts)
+        else:
+            user_post_message(identity, channel_id, visible_text, thread_ts=None)
+
         _update_state(thread_ts, persona, time.time())
-        logger.info(f"[CONDUCTOR] {persona} posted reply")
+        logger.info(f"[CONDUCTOR] {persona} posted reply as real user")
+        
+        # Check for close-out mechanics
+        if is_thread and state:
+            if state.phase == "FIX" and detect_fix_complete(visible_text):
+                # Force REVIEW phase when FIX is complete
+                trigger_review_phase(state, ch_name, channel_id, thread_ts, persona)
+            elif state.phase == "REVIEW" and is_positive_review(visible_text):
+                # If review is positive, trigger POSTMORTEM and then close
+                trigger_postmortem_and_close(state, ch_name, channel_id, thread_ts)
 
         # (optional) local provenance log
         try:
@@ -353,8 +714,20 @@ def _schedule_reply(persona: str, ch_name: str, channel_id: str, event_text: str
         except Exception:
             pass
 
-    # crude delay using the queue thread (non-blocking)
+    # Add realistic response latency based on context
+    from .progression import get_state
+    is_owner = False
+    if is_thread:
+        state = get_state(channel_id, thread_ts, THREAD_STATES)
+        if state and state.owner == persona:
+            is_owner = True
+    
+    # Calculate realistic latency
+    realistic_delay = calculate_response_latency(persona, is_owner)
+    total_delay = delay_s + realistic_delay
+    
+    # Crude delay using the queue thread (non-blocking)
     t0 = time.time()
-    while time.time() - t0 < delay_s:
+    while time.time() - t0 < total_delay:
         time.sleep(0.2)
     _do()

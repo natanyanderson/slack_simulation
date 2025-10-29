@@ -2,11 +2,12 @@ import os, logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from dotenv import load_dotenv
-from .slack_client import app as bolt_app
 from .conductor import maybe_handle_event
 from .persona_registry import CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
 from .seed_scheduler import start_seeders
 from .autonomous_loop import start_autonomous_loop, add_real_message_to_history
+from .artifact_server import start_server as start_artifact_server
+from .artifacts import load_artifacts
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -15,7 +16,19 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-app = bolt_app
+# Initialize a single-workspace Bolt App here (no OAuth / MultiTeamsAuthorization)
+app = App(
+    token=os.getenv("SLACK_BOT_TOKEN"),                 # xoxb-...
+    signing_secret=os.getenv("SLACK_SIGNING_SECRET"),   # required even in Socket Mode
+    process_before_response=True,
+)
+
+# Preflight auth check to surface bad tokens early
+try:
+    whoami = app.client.auth_test()
+    logging.info(f"[startup] Bot connected as user_id={whoami.get('user_id')} team={whoami.get('team')} ({whoami.get('team_id')})")
+except Exception as e:
+    logging.error(f"[startup] auth_test failed. Check SLACK_BOT_TOKEN / installation. Error: {e}")
 
 # On app start, build channel maps (optional but recommended)
 @app.event("app_home_opened")
@@ -102,8 +115,19 @@ def run_socket_mode():
     # Load channel maps at startup
     load_channel_maps(app, logging.getLogger(__name__))
 
+    # Load artifacts from disk
+    load_artifacts()
+    logging.info("Loaded artifacts from disk")
+    
+    # Start artifact server
+    start_artifact_server()
+    
     # Start autonomous simulation loop (like slackbench_sim)
     start_autonomous_loop()
+    
+    # Start scheduled events (standups, status summaries)
+    from .scheduled_events import start_scheduled_events
+    start_scheduled_events()
     
     # Start seeders (optional, less needed with autonomous loop)
     # start_seeders(

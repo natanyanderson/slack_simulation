@@ -1,0 +1,27 @@
+# Scenario: Search API Latency Incident
+# This scenario seeds a conversation about a production latency issue
+
+id: "S001_search_latency"
+title: "SKU Search p95 regression in prod"
+description: "Production latency spike on search endpoint after deployment"
+
+# Channels where this conversation should happen
+channels: ["sre-ops", "eng-backend", "product"]
+
+# Initial context to provide to personas
+initial_context: |
+  Metrics show p95 latency spiked to 4200ms on the /search endpoint after v1.7.12 deployment.
+  Error rate increased to 2.3%. Users reporting slow product searches.
+
+# Expected personas to participate
+personas: ["Mike_BE", "Nina_SRE", "Kevin_QA", "Gabriella_PM"]
+
+# Suggested opener (to seed the conversation)
+opener:
+  persona: "Kevin_QA"
+  channel: "sre-ops"
+  message: "Heads-up: p95 latency on search spiked to 4200ms after v1.7.12. Seeing elevated error rates. @Mike_BE can you check the logs?"
+
+# Keywords that should be used (to guide the conversation naturally)
+keywords: ["latency", "index", "query plan", "deployment", "monitoring", "database"]
+
