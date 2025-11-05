@@ -681,6 +681,24 @@ def transform_to_output_format(result):
     response_dict = build_response_properties(response_examples, field_descriptions)
     output["response"] = response_dict
     
+    # Transform errors to match parameters format
+    errors_list = result.get("errors", [])
+    if errors_list:
+        errors_properties = {}
+        for error in errors_list:
+            error_name = error.get("name", "")
+            if error_name:
+                errors_properties[error_name] = {
+                    "type": "string",
+                    "description": error.get("description", "")
+                }
+        
+        if errors_properties:
+            output["errors"] = {
+                "type": "dict",
+                "properties": errors_properties
+            }
+    
     return output
 
 
@@ -1069,6 +1087,93 @@ def extract_method_page(url):
         
         return facts_args
     
+    # Extract Errors section
+    def extract_errors_section(article):
+        """Extract errors from Errors section, typically formatted as a table with error names and descriptions."""
+        errors = []
+        
+        # Find Errors heading (h2 or h3)
+        errors_h2 = article.find("h2", id="errors")
+        if not errors_h2:
+            errors_h2 = article.find(lambda t: t.name in ("h2","h3") and 
+                                    norm_heading(t.get_text(strip=True)) == "errors")
+        
+        if not errors_h2:
+            # Try searching by text content
+            for h2 in article.find_all(["h2", "h3"]):
+                heading_text = norm_heading(h2.get_text(strip=True))
+                if heading_text == "errors":
+                    errors_h2 = h2
+                    break
+        
+        if errors_h2:
+            # Find table or content after Errors heading
+            errors_content = errors_h2.find_next_sibling()
+            if not errors_content:
+                errors_content = errors_h2.parent
+            
+            # Look for table
+            table = errors_content.find("table") if errors_content else None
+            if not table:
+                table = errors_h2.find_next("table")
+            
+            if table:
+                # Parse table similar to arguments table
+                # Errors tables typically have: Error | Description
+                table_rows = parse_arguments_table(table)
+                for row in table_rows:
+                    # Map to error format (name -> description)
+                    error_name = row.get("name", "").strip()
+                    error_desc = row.get("description", "").strip()
+                    if error_name:
+                        errors.append({
+                            "name": error_name,
+                            "description": error_desc
+                        })
+            else:
+                # If no table, try to extract from list items or paragraphs
+                # Look for patterns like "error_name: description" or code blocks with error names
+                # Search within the errors section content
+                if errors_content:
+                    # Collect all content until the next heading
+                    section_elements = []
+                    for elem in errors_h2.find_next_siblings():
+                        if elem.name and re.match(r"h[1-4]", elem.name):
+                            break
+                        section_elements.append(elem)
+                    
+                    # Search for code blocks within the errors section
+                    for elem in section_elements:
+                        for code in elem.find_all(["code", "pre"], recursive=True):
+                            error_name = code.get_text(strip=True)
+                            # Error names are typically short identifiers (like "invalid_auth", "channel_not_found")
+                            # Filter out URLs and long code blocks
+                            if error_name and len(error_name) < 100 and not error_name.startswith("http") and " " not in error_name:
+                                # Get description from next sibling or parent
+                                desc = ""
+                                parent = code.find_parent()
+                                if parent:
+                                    # Look for description text after the code
+                                    for sib in code.find_next_siblings():
+                                        if sib.name == "p":
+                                            desc = clean_text(sib)
+                                            break
+                                    if not desc:
+                                        # Try parent text excluding the code
+                                        parent_text = clean_text(parent)
+                                        if error_name in parent_text:
+                                            desc = parent_text.replace(error_name, "").strip()
+                                            if desc.startswith(":"):
+                                                desc = desc[1:].strip()
+                                
+                                if error_name and error_name not in [e.get("name") for e in errors]:
+                                    errors.append({
+                                        "name": error_name,
+                                        "description": desc
+                                    })
+        
+        return errors
+    
     # Arguments
     def find_first_table_near(div):
         if not div: return None
@@ -1147,6 +1252,11 @@ def extract_method_page(url):
     if json_response_examples:
         print(f"  → Extracted {len(json_response_examples)} JSON response examples")
 
+    # Extract Errors section
+    errors_list = extract_errors_section(article)
+    if errors_list:
+        print(f"  → Extracted {len(errors_list)} errors from Errors section")
+
     result = {
         "method": method_name,
         "url": url,
@@ -1158,20 +1268,273 @@ def extract_method_page(url):
         "content_types": content_types_list,
         "rate_limits": rate_limits,
         "arguments": args,
+        "errors": errors_list,  # List of error dicts with name and description
         "usage_examples": examples,
         "raw_sections": {k: clean_text(v)[:4000] for k,v in sections.items()}
     }
     # Transform to desired output format
     return transform_to_output_format(result)
 
+
+def scrape_all_methods(
+    methods_json_path: str = "slack_api_all_methods.json",
+    output_file: str = "slack_api_all_methods_scraped.json",
+    rate_limit_delay: float = 1.0,
+    resume_from: str = None,
+    skip_existing: bool = False
+):
+    """
+    Scrape all Slack API methods from a JSON file.
+    
+    Args:
+        methods_json_path: Path to JSON file containing list of methods
+        output_file: Path to save scraped results (JSON array)
+        rate_limit_delay: Delay in seconds between requests
+        resume_from: Method name to resume from (if scraping was interrupted)
+        skip_existing: If True, skip methods that already exist in output_file
+    
+    Returns:
+        List of scraped method dictionaries in transformed format
+    """
+    import os
+    
+    # Load methods list
+    print(f"Loading methods from {methods_json_path}...")
+    try:
+        with open(methods_json_path, "r", encoding="utf-8") as f:
+            methods_list = json.load(f)
+    except FileNotFoundError:
+        print(f"Error: File {methods_json_path} not found")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in {methods_json_path}: {e}")
+        return []
+    
+    print(f"Found {len(methods_list)} methods to scrape")
+    
+    # Load existing results if resuming or skipping
+    existing_results = {}
+    existing_methods = set()
+    if skip_existing and os.path.exists(output_file):
+        try:
+            with open(output_file, "r", encoding="utf-8") as f:
+                existing_data = json.load(f)
+                if isinstance(existing_data, list):
+                    for method in existing_data:
+                        if isinstance(method, dict) and "name" in method:
+                            existing_methods.add(method["name"])
+                            existing_results[method["name"]] = method
+            print(f"Found {len(existing_methods)} existing methods in {output_file}")
+        except (json.JSONDecodeError, FileNotFoundError):
+            pass
+    
+    # Prepare results list
+    results = []
+    failed_methods = []
+    skipped_count = 0
+    start_index = 0
+    
+    # Find resume point if specified
+    if resume_from:
+        for i, method in enumerate(methods_list):
+            if method.get("name") == resume_from:
+                start_index = i
+                print(f"Resuming from method: {resume_from} (index {i})")
+                break
+    
+    # Process each method
+    total = len(methods_list)
+    for i, method_entry in enumerate(methods_list[start_index:], start=start_index):
+        method_name = method_entry.get("name", "")
+        method_url = method_entry.get("url", "")
+        
+        if not method_url:
+            print(f"[{i+1}/{total}] ⚠️  Skipping {method_name}: No URL")
+            failed_methods.append({"name": method_name, "error": "No URL provided"})
+            continue
+        
+        # Skip if already exists
+        if skip_existing and method_name in existing_methods:
+            print(f"[{i+1}/{total}] ⏭️  Skipping {method_name} (already exists)")
+            results.append(existing_results[method_name])
+            skipped_count += 1
+            continue
+        
+        # Scrape method
+        print(f"[{i+1}/{total}] 🔍 Scraping {method_name}...")
+        try:
+            method_data = extract_method_page(method_url)
+            
+            # Validate that we got proper data
+            if method_data and method_data.get("name"):
+                results.append(method_data)
+                print(f"[{i+1}/{total}] ✅ Success: {method_name}")
+            else:
+                print(f"[{i+1}/{total}] ❌ Failed: {method_name} (empty or invalid data)")
+                failed_methods.append({"name": method_name, "error": "Empty or invalid data"})
+        
+        except Exception as e:
+            print(f"[{i+1}/{total}] ❌ Error scraping {method_name}: {e}")
+            failed_methods.append({"name": method_name, "error": str(e)})
+        
+        # Rate limiting (except for last item)
+        if i < total - 1:
+            time.sleep(rate_limit_delay)
+    
+    # Save results - ALL methods are saved to a single JSON array file
+    print(f"\n=== Scraping Complete ===")
+    print(f"Total methods: {total}")
+    print(f"Successfully scraped: {len(results)}")
+    print(f"Skipped (existing): {skipped_count}")
+    print(f"Failed: {len(failed_methods)}")
+    
+    if results:
+        print(f"\nSaving all {len(results)} methods to {output_file}...")
+        try:
+            # Save all results as a single JSON array
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+            print(f"✅ Saved {len(results)} methods to {output_file} (single file)")
+        except Exception as e:
+            print(f"❌ Error saving results: {e}")
+    else:
+        print(f"\n⚠️  No results to save (all methods failed or were skipped)")
+    
+    # Save failed methods report
+    if failed_methods:
+        failed_file = output_file.replace(".json", "_failed.json")
+        print(f"\nSaving failed methods report to {failed_file}...")
+        try:
+            with open(failed_file, "w", encoding="utf-8") as f:
+                json.dump(failed_methods, f, indent=2, ensure_ascii=False)
+            print(f"✅ Saved {len(failed_methods)} failed methods to {failed_file}")
+        except Exception as e:
+            print(f"❌ Error saving failed methods: {e}")
+    
+    return results
+
+
 if __name__ == "__main__":
-    url = "https://docs.slack.dev/reference/methods/admin.analytics.getFile"
-    obj = extract_method_page(url)
-    with open("admin.analytics.getFile.json", "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2, ensure_ascii=False)
-    print("Saved:", obj["name"])
-    print("Fields captured:",
-          f"name={bool(obj['name'])}",
-          f"description={bool(obj['description'])}",
-          f"parameters={len(obj.get('parameters', {}).get('properties', {}))}",
-          f"response={len(obj.get('response', {}).get('properties', {}))}")
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Scrape Slack API methods documentation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Scrape a single method (default)
+  python slack_method_scraper.py --method admin.analytics.getFile
+  
+  # Scrape all methods from JSON file
+  python slack_method_scraper.py --all --input slack_api_all_methods.json
+  
+  # Scrape all methods with custom rate limit and skip existing
+  python slack_method_scraper.py --all --rate-limit 2.0 --skip-existing
+  
+  # Resume from a specific method
+  python slack_method_scraper.py --all --resume-from admin.apps.approve
+        """
+    )
+    
+    parser.add_argument(
+        "--method",
+        type=str,
+        help="Scrape a single method by name (e.g., admin.analytics.getFile)"
+    )
+    
+    parser.add_argument(
+        "--url",
+        type=str,
+        help="Scrape a single method by URL"
+    )
+    
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Scrape all methods from JSON file"
+    )
+    
+    parser.add_argument(
+        "--input",
+        type=str,
+        default="slack_api_all_methods.json",
+        help="Input JSON file containing list of methods (default: slack_api_all_methods.json)"
+    )
+    
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Output JSON file path (default: method-specific for single, slack_api_all_methods_scraped.json for batch)"
+    )
+    
+    parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=1.0,
+        help="Delay in seconds between requests (default: 1.0)"
+    )
+    
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        help="Resume scraping from a specific method name"
+    )
+    
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip methods that already exist in output file"
+    )
+    
+    args = parser.parse_args()
+    
+    # Batch scraping mode
+    if args.all:
+        output_file = args.output or "slack_api_all_methods_scraped.json"
+        scrape_all_methods(
+            methods_json_path=args.input,
+            output_file=output_file,
+            rate_limit_delay=args.rate_limit,
+            resume_from=args.resume_from,
+            skip_existing=args.skip_existing
+        )
+    
+    # Single method scraping mode
+    else:
+        # Determine URL
+        if args.url:
+            url = args.url
+        elif args.method:
+            url = f"https://docs.slack.dev/reference/methods/{args.method}"
+        else:
+            # Default: use admin.analytics.getFile as example
+            url = "https://docs.slack.dev/reference/methods/admin.analytics.getFile"
+        
+        # Scrape method
+        print(f"Scraping method from: {url}")
+        try:
+            obj = extract_method_page(url)
+            
+            # Determine output file
+            if args.output:
+                output_file = args.output
+            elif args.method:
+                output_file = f"{args.method}.json"
+            else:
+                output_file = "admin.analytics.getFile.json"
+            
+            # Save result
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(obj, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ Saved: {obj['name']}")
+            print("Fields captured:",
+                  f"name={bool(obj['name'])}",
+                  f"description={bool(obj['description'])}",
+                  f"parameters={len(obj.get('parameters', {}).get('properties', {}))}",
+                  f"response={len(obj.get('response', {}).get('properties', {}))}")
+        
+        except Exception as e:
+            print(f"❌ Error scraping method: {e}")
+            import traceback
+            traceback.print_exc()
