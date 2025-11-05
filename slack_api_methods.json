@@ -1,0 +1,10 @@
+[
+  {
+    "name": "api.test",
+    "url": "https://docs.slack.dev/reference/methods/api.test",
+    "description": "This method helps you test your calling code.You can also use this method as a very basic way to test whether Slack'sWeb APIis functioning.You can't use this method with aSign in with Slack token.Response​",
+    "parameters": [],
+    "example_request": "api.test",
+    "example_response": ""
+  }
+]
