@@ -31,6 +31,7 @@ Thumbs.db
 # Project specific
 data/slack_runs_raw.jsonl
 .env.local
+ARTIFACT_SYSTEM.md
 
 # Secrets and tokens (NEVER commit these!)
 secrets/
