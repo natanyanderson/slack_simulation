@@ -37,3 +37,5 @@ ARTIFACT_SYSTEM.md
 secrets/
 **/secrets/**
 
+# Exported Slack history
+slack_export.json
