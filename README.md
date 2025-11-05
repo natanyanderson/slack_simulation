@@ -80,6 +80,103 @@ Each persona has:
 4. **LLM Generator**: Uses OpenAI to generate role-appropriate responses
 5. **Queue System**: Manages posting rate to respect Slack limits
 
+## Slack API Method Scraper
+
+The `scraper/` folder contains a comprehensive scraper for extracting Slack API method documentation.
+
+### Scraper Features
+
+- Extracts method name, description, parameters, and response schemas
+- Handles nested objects and arrays in response structures
+- Extracts error definitions
+- Supports batch processing of all methods
+- Outputs in standardized JSON format
+
+### Usage
+
+#### Scrape a Single Method
+
+```bash
+# From the scraper directory
+cd scraper
+python slack_method_scraper.py --method admin.analytics.getFile
+
+# Or from the root directory
+python scraper/slack_method_scraper.py --method admin.analytics.getFile
+```
+
+#### Scrape All Methods
+
+```bash
+# From the scraper directory
+cd scraper
+python slack_method_scraper.py --all --input ../slack_api_all_methods.json
+
+# Or from the root directory
+python scraper/slack_method_scraper.py --all
+```
+
+#### Advanced Options
+
+```bash
+# Custom rate limiting (default: 1.0 seconds)
+python scraper/slack_method_scraper.py --all --rate-limit 2.0
+
+# Skip methods that already exist in output file
+python scraper/slack_method_scraper.py --all --skip-existing
+
+# Resume from a specific method if scraping was interrupted
+python scraper/slack_method_scraper.py --all --resume-from admin.apps.approve
+
+# Custom input/output files
+python scraper/slack_method_scraper.py --all --input ../slack_api_all_methods.json --output my_output.json
+```
+
+### Output Format
+
+The scraper outputs JSON files with the following structure:
+
+```json
+{
+  "name": "method.name",
+  "description": "Method description",
+  "parameters": {
+    "type": "dict",
+    "properties": {
+      "param_name": {
+        "type": "string",
+        "description": "Parameter description"
+      }
+    },
+    "required": ["param_name"]
+  },
+  "response": {
+    "type": "dict",
+    "properties": {
+      "field_name": {
+        "type": "string",
+        "description": "Field description"
+      }
+    }
+  },
+  "errors": {
+    "type": "dict",
+    "properties": {
+      "error_name": {
+        "type": "string",
+        "description": "Error description"
+      }
+    }
+  }
+}
+```
+
+### Scraper Files
+
+- `scraper/slack_method_scraper.py` - Main scraper script
+- `scraper/slack_api_all_methods_scraped.json` - Complete scraped results (all methods)
+- `slack_api_all_methods.json` - Input file with list of all Slack API methods
+
 ## Documentation
 
 - `AUTONOMOUS_APPROACH.md` - How the autonomous loop works
