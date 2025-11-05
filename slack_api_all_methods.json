@@ -1,0 +1,1808 @@
+[
+  {
+    "name": "admin.analytics.getFile",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.analytics.getFile",
+    "description": "admin"
+  },
+  {
+    "name": "admin.apps.activities.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.activities.list",
+    "description": "admin.apps.activities.list"
+  },
+  {
+    "name": "admin.apps.approve",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.approve",
+    "description": "admin.apps.approve"
+  },
+  {
+    "name": "admin.apps.approved.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.approved.list",
+    "description": "admin.apps.approved.list"
+  },
+  {
+    "name": "admin.apps.clearResolution",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.clearResolution",
+    "description": "admin.apps.clearResolution"
+  },
+  {
+    "name": "admin.apps.config.lookup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.config.lookup",
+    "description": "admin.apps.config.lookup"
+  },
+  {
+    "name": "admin.apps.config.set",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.config.set",
+    "description": "admin.apps.config.set"
+  },
+  {
+    "name": "admin.apps.requests.cancel",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.requests.cancel",
+    "description": "admin.apps.requests.cancel"
+  },
+  {
+    "name": "admin.apps.requests.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.requests.list",
+    "description": "admin.apps.requests.list"
+  },
+  {
+    "name": "admin.apps.restrict",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.restrict",
+    "description": "admin.apps.restrict"
+  },
+  {
+    "name": "admin.apps.restricted.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.restricted.list",
+    "description": "admin.apps.restricted.list"
+  },
+  {
+    "name": "admin.apps.uninstall",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.apps.uninstall",
+    "description": "admin.apps.uninstall"
+  },
+  {
+    "name": "admin.audit.anomaly.allow.getItem",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.audit.anomaly.allow.getItem",
+    "description": "admin.audit.anomaly.allow.getItem"
+  },
+  {
+    "name": "admin.audit.anomaly.allow.updateItem",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.audit.anomaly.allow.updateItem",
+    "description": "admin.audit.anomaly.allow.updateItem"
+  },
+  {
+    "name": "admin.auth.policy.assignEntities",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.auth.policy.assignEntities",
+    "description": "admin.auth.policy.assignEntities"
+  },
+  {
+    "name": "admin.auth.policy.getEntities",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.auth.policy.getEntities",
+    "description": "admin.auth.policy.getEntities"
+  },
+  {
+    "name": "admin.auth.policy.removeEntities",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.auth.policy.removeEntities",
+    "description": "admin.auth.policy.removeEntities"
+  },
+  {
+    "name": "admin.barriers.create",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.barriers.create",
+    "description": "admin.barriers.create"
+  },
+  {
+    "name": "admin.barriers.delete",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.barriers.delete",
+    "description": "admin.barriers.delete"
+  },
+  {
+    "name": "admin.barriers.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.barriers.list",
+    "description": "admin.barriers.list"
+  },
+  {
+    "name": "admin.barriers.update",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.barriers.update",
+    "description": "admin.barriers.update"
+  },
+  {
+    "name": "admin.conversations.archive",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.archive",
+    "description": "admin.conversations.archive"
+  },
+  {
+    "name": "admin.conversations.bulkArchive",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.bulkArchive",
+    "description": "admin.conversations.bulkArchive"
+  },
+  {
+    "name": "admin.conversations.bulkDelete",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.bulkDelete",
+    "description": "admin.conversations.bulkDelete"
+  },
+  {
+    "name": "admin.conversations.bulkMove",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.bulkMove",
+    "description": "admin.conversations.bulkMove"
+  },
+  {
+    "name": "admin.conversations.convertToPrivate",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.convertToPrivate",
+    "description": "admin.conversations.convertToPrivate"
+  },
+  {
+    "name": "admin.conversations.convertToPublic",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.convertToPublic",
+    "description": "admin.conversations.convertToPublic"
+  },
+  {
+    "name": "admin.conversations.create",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.create",
+    "description": "admin.conversations.create"
+  },
+  {
+    "name": "admin.conversations.createForObjects",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.createForObjects",
+    "description": "admin.conversations.createForObjects"
+  },
+  {
+    "name": "admin.conversations.delete",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.delete",
+    "description": "admin.conversations.delete"
+  },
+  {
+    "name": "admin.conversations.disconnectShared",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.disconnectShared",
+    "description": "admin.conversations.disconnectShared"
+  },
+  {
+    "name": "admin.conversations.ekm.listOriginalConnectedChannelInfo",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.ekm.listOriginalConnectedChannelInfo",
+    "description": "admin.conversations.ekm.listOriginalConnectedChannelInfo"
+  },
+  {
+    "name": "admin.conversations.getConversationPrefs",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.getConversationPrefs",
+    "description": "admin.conversations.getConversationPrefs"
+  },
+  {
+    "name": "admin.conversations.getCustomRetention",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.getCustomRetention",
+    "description": "admin.conversations.getCustomRetention"
+  },
+  {
+    "name": "admin.conversations.getTeams",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.getTeams",
+    "description": "admin.conversations.getTeams"
+  },
+  {
+    "name": "admin.conversations.invite",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.invite",
+    "description": "admin.conversations.invite"
+  },
+  {
+    "name": "admin.conversations.linkObjects",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.linkObjects",
+    "description": "admin.conversations.linkObjects"
+  },
+  {
+    "name": "admin.conversations.lookup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.lookup",
+    "description": "admin.conversations.lookup"
+  },
+  {
+    "name": "admin.conversations.removeCustomRetention",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.removeCustomRetention",
+    "description": "admin.conversations.removeCustomRetention"
+  },
+  {
+    "name": "admin.conversations.rename",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.rename",
+    "description": "admin.conversations.rename"
+  },
+  {
+    "name": "admin.conversations.restrictAccess.addGroup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.restrictAccess.addGroup",
+    "description": "admin.conversations.restrictAccess.addGroup"
+  },
+  {
+    "name": "admin.conversations.restrictAccess.listGroups",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.restrictAccess.listGroups",
+    "description": "admin.conversations.restrictAccess.listGroups"
+  },
+  {
+    "name": "admin.conversations.restrictAccess.removeGroup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.restrictAccess.removeGroup",
+    "description": "admin.conversations.restrictAccess.removeGroup"
+  },
+  {
+    "name": "admin.conversations.search",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.search",
+    "description": "admin.conversations.search"
+  },
+  {
+    "name": "admin.conversations.setConversationPrefs",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.setConversationPrefs",
+    "description": "admin.conversations.setConversationPrefs"
+  },
+  {
+    "name": "admin.conversations.setCustomRetention",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.setCustomRetention",
+    "description": "admin.conversations.setCustomRetention"
+  },
+  {
+    "name": "admin.conversations.setTeams",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.setTeams",
+    "description": "admin.conversations.setTeams"
+  },
+  {
+    "name": "admin.conversations.unarchive",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.unarchive",
+    "description": "admin.conversations.unarchive"
+  },
+  {
+    "name": "admin.conversations.unlinkObjects",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.conversations.unlinkObjects",
+    "description": "admin.conversations.unlinkObjects"
+  },
+  {
+    "name": "admin.emoji.add",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.emoji.add",
+    "description": "admin.emoji.add"
+  },
+  {
+    "name": "admin.emoji.addAlias",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.emoji.addAlias",
+    "description": "admin.emoji.addAlias"
+  },
+  {
+    "name": "admin.emoji.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.emoji.list",
+    "description": "admin.emoji.list"
+  },
+  {
+    "name": "admin.emoji.remove",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.emoji.remove",
+    "description": "admin.emoji.remove"
+  },
+  {
+    "name": "admin.emoji.rename",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.emoji.rename",
+    "description": "admin.emoji.rename"
+  },
+  {
+    "name": "admin.functions.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.functions.list",
+    "description": "admin.functions.list"
+  },
+  {
+    "name": "admin.functions.permissions.lookup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.functions.permissions.lookup",
+    "description": "admin.functions.permissions.lookup"
+  },
+  {
+    "name": "admin.functions.permissions.set",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.functions.permissions.set",
+    "description": "admin.functions.permissions.set"
+  },
+  {
+    "name": "admin.inviteRequests.approve",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.inviteRequests.approve",
+    "description": "admin.inviteRequests.approve"
+  },
+  {
+    "name": "admin.inviteRequests.approved.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.inviteRequests.approved.list",
+    "description": "admin.inviteRequests.approved.list"
+  },
+  {
+    "name": "admin.inviteRequests.denied.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.inviteRequests.denied.list",
+    "description": "admin.inviteRequests.denied.list"
+  },
+  {
+    "name": "admin.inviteRequests.deny",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.inviteRequests.deny",
+    "description": "admin.inviteRequests.deny"
+  },
+  {
+    "name": "admin.inviteRequests.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.inviteRequests.list",
+    "description": "admin.inviteRequests.list"
+  },
+  {
+    "name": "admin.roles.addAssignments",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.roles.addAssignments",
+    "description": "admin.roles.addAssignments"
+  },
+  {
+    "name": "admin.roles.listAssignments",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.roles.listAssignments",
+    "description": "admin.roles.listAssignments"
+  },
+  {
+    "name": "admin.roles.removeAssignments",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.roles.removeAssignments",
+    "description": "admin.roles.removeAssignments"
+  },
+  {
+    "name": "admin.teams.admins.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.admins.list",
+    "description": "admin.teams.admins.list"
+  },
+  {
+    "name": "admin.teams.create",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.create",
+    "description": "admin.teams.create"
+  },
+  {
+    "name": "admin.teams.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.list",
+    "description": "admin.teams.list"
+  },
+  {
+    "name": "admin.teams.owners.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.owners.list",
+    "description": "admin.teams.owners.list"
+  },
+  {
+    "name": "admin.teams.settings.info",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.info",
+    "description": "admin.teams.settings.info"
+  },
+  {
+    "name": "admin.teams.settings.setDefaultChannels",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.setDefaultChannels",
+    "description": "admin.teams.settings.setDefaultChannels"
+  },
+  {
+    "name": "admin.teams.settings.setDescription",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.setDescription",
+    "description": "admin.teams.settings.setDescription"
+  },
+  {
+    "name": "admin.teams.settings.setDiscoverability",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.setDiscoverability",
+    "description": "admin.teams.settings.setDiscoverability"
+  },
+  {
+    "name": "admin.teams.settings.setIcon",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.setIcon",
+    "description": "admin.teams.settings.setIcon"
+  },
+  {
+    "name": "admin.teams.settings.setName",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.teams.settings.setName",
+    "description": "admin.teams.settings.setName"
+  },
+  {
+    "name": "admin.usergroups.addChannels",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.usergroups.addChannels",
+    "description": "admin.usergroups.addChannels"
+  },
+  {
+    "name": "admin.usergroups.addTeams",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.usergroups.addTeams",
+    "description": "admin.usergroups.addTeams"
+  },
+  {
+    "name": "admin.usergroups.listChannels",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.usergroups.listChannels",
+    "description": "admin.usergroups.listChannels"
+  },
+  {
+    "name": "admin.usergroups.removeChannels",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.usergroups.removeChannels",
+    "description": "admin.usergroups.removeChannels"
+  },
+  {
+    "name": "admin.users.assign",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.assign",
+    "description": "admin.users.assign"
+  },
+  {
+    "name": "admin.users.getExpiration",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.getExpiration",
+    "description": "admin.users.getExpiration"
+  },
+  {
+    "name": "admin.users.invite",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.invite",
+    "description": "admin.users.invite"
+  },
+  {
+    "name": "admin.users.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.list",
+    "description": "admin.users.list"
+  },
+  {
+    "name": "admin.users.remove",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.remove",
+    "description": "admin.users.remove"
+  },
+  {
+    "name": "admin.users.session.clearSettings",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.clearSettings",
+    "description": "admin.users.session.clearSettings"
+  },
+  {
+    "name": "admin.users.session.getSettings",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.getSettings",
+    "description": "admin.users.session.getSettings"
+  },
+  {
+    "name": "admin.users.session.invalidate",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.invalidate",
+    "description": "admin.users.session.invalidate"
+  },
+  {
+    "name": "admin.users.session.list",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.list",
+    "description": "admin.users.session.list"
+  },
+  {
+    "name": "admin.users.session.reset",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.reset",
+    "description": "admin.users.session.reset"
+  },
+  {
+    "name": "admin.users.session.resetBulk",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.resetBulk",
+    "description": "admin.users.session.resetBulk"
+  },
+  {
+    "name": "admin.users.session.setSettings",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.session.setSettings",
+    "description": "admin.users.session.setSettings"
+  },
+  {
+    "name": "admin.users.setAdmin",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.setAdmin",
+    "description": "admin.users.setAdmin"
+  },
+  {
+    "name": "admin.users.setExpiration",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.setExpiration",
+    "description": "admin.users.setExpiration"
+  },
+  {
+    "name": "admin.users.setOwner",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.setOwner",
+    "description": "admin.users.setOwner"
+  },
+  {
+    "name": "admin.users.setRegular",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.setRegular",
+    "description": "admin.users.setRegular"
+  },
+  {
+    "name": "admin.users.unsupportedVersions.export",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.users.unsupportedVersions.export",
+    "description": "admin.users.unsupportedVersions.export"
+  },
+  {
+    "name": "admin.workflows.collaborators.add",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.collaborators.add",
+    "description": "admin.workflows.collaborators.add"
+  },
+  {
+    "name": "admin.workflows.collaborators.remove",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.collaborators.remove",
+    "description": "admin.workflows.collaborators.remove"
+  },
+  {
+    "name": "admin.workflows.permissions.lookup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.permissions.lookup",
+    "description": "admin.workflows.permissions.lookup"
+  },
+  {
+    "name": "admin.workflows.search",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.search",
+    "description": "admin.workflows.search"
+  },
+  {
+    "name": "admin.workflows.triggers.types.permissions.lookup",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.triggers.types.permissions.lookup",
+    "description": "admin.workflows.triggers.types.permissions.lookup"
+  },
+  {
+    "name": "admin.workflows.triggers.types.permissions.set",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.triggers.types.permissions.set",
+    "description": "admin.workflows.triggers.types.permissions.set"
+  },
+  {
+    "name": "admin.workflows.unpublish",
+    "category": "admin",
+    "url": "https://docs.slack.dev/reference/methods/admin.workflows.unpublish",
+    "description": "admin.workflows.unpublish"
+  },
+  {
+    "name": "api.test",
+    "category": "api",
+    "url": "https://docs.slack.dev/reference/methods/api.test",
+    "description": "api"
+  },
+  {
+    "name": "apps.activities.list",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.activities.list",
+    "description": "apps"
+  },
+  {
+    "name": "apps.auth.external.delete",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.auth.external.delete",
+    "description": "apps.auth.external.delete"
+  },
+  {
+    "name": "apps.auth.external.get",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.auth.external.get",
+    "description": "apps.auth.external.get"
+  },
+  {
+    "name": "apps.connections.open",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.connections.open",
+    "description": "apps.connections.open"
+  },
+  {
+    "name": "apps.datastore.bulkDelete",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.bulkDelete",
+    "description": "apps.datastore.bulkDelete"
+  },
+  {
+    "name": "apps.datastore.bulkGet",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.bulkGet",
+    "description": "apps.datastore.bulkGet"
+  },
+  {
+    "name": "apps.datastore.bulkPut",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.bulkPut",
+    "description": "apps.datastore.bulkPut"
+  },
+  {
+    "name": "apps.datastore.count",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.count",
+    "description": "apps.datastore.count"
+  },
+  {
+    "name": "apps.datastore.delete",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.delete",
+    "description": "apps.datastore.delete"
+  },
+  {
+    "name": "apps.datastore.get",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.get",
+    "description": "apps.datastore.get"
+  },
+  {
+    "name": "apps.datastore.put",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.put",
+    "description": "apps.datastore.put"
+  },
+  {
+    "name": "apps.datastore.query",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.query",
+    "description": "apps.datastore.query"
+  },
+  {
+    "name": "apps.datastore.update",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.datastore.update",
+    "description": "apps.datastore.update"
+  },
+  {
+    "name": "apps.event.authorizations.list",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.event.authorizations.list",
+    "description": "apps.event.authorizations.list"
+  },
+  {
+    "name": "apps.manifest.create",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.manifest.create",
+    "description": "apps.manifest.create"
+  },
+  {
+    "name": "apps.manifest.delete",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.manifest.delete",
+    "description": "apps.manifest.delete"
+  },
+  {
+    "name": "apps.manifest.export",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.manifest.export",
+    "description": "apps.manifest.export"
+  },
+  {
+    "name": "apps.manifest.update",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.manifest.update",
+    "description": "apps.manifest.update"
+  },
+  {
+    "name": "apps.manifest.validate",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.manifest.validate",
+    "description": "apps.manifest.validate"
+  },
+  {
+    "name": "apps.uninstall",
+    "category": "apps",
+    "url": "https://docs.slack.dev/reference/methods/apps.uninstall",
+    "description": "apps.uninstall"
+  },
+  {
+    "name": "assistant.search.context",
+    "category": "assistant",
+    "url": "https://docs.slack.dev/reference/methods/assistant.search.context",
+    "description": "assistant"
+  },
+  {
+    "name": "assistant.search.info",
+    "category": "assistant",
+    "url": "https://docs.slack.dev/reference/methods/assistant.search.info",
+    "description": "assistant.search.info"
+  },
+  {
+    "name": "assistant.threads.setStatus",
+    "category": "assistant",
+    "url": "https://docs.slack.dev/reference/methods/assistant.threads.setStatus",
+    "description": "assistant.threads.setStatus"
+  },
+  {
+    "name": "assistant.threads.setSuggestedPrompts",
+    "category": "assistant",
+    "url": "https://docs.slack.dev/reference/methods/assistant.threads.setSuggestedPrompts",
+    "description": "assistant.threads.setSuggestedPrompts"
+  },
+  {
+    "name": "assistant.threads.setTitle",
+    "category": "assistant",
+    "url": "https://docs.slack.dev/reference/methods/assistant.threads.setTitle",
+    "description": "assistant.threads.setTitle"
+  },
+  {
+    "name": "auth.revoke",
+    "category": "auth",
+    "url": "https://docs.slack.dev/reference/methods/auth.revoke",
+    "description": "auth"
+  },
+  {
+    "name": "auth.teams.list",
+    "category": "auth",
+    "url": "https://docs.slack.dev/reference/methods/auth.teams.list",
+    "description": "auth.teams.list"
+  },
+  {
+    "name": "auth.test",
+    "category": "auth",
+    "url": "https://docs.slack.dev/reference/methods/auth.test",
+    "description": "auth.test"
+  },
+  {
+    "name": "bookmarks.add",
+    "category": "bookmarks",
+    "url": "https://docs.slack.dev/reference/methods/bookmarks.add",
+    "description": "bookmarks"
+  },
+  {
+    "name": "bookmarks.edit",
+    "category": "bookmarks",
+    "url": "https://docs.slack.dev/reference/methods/bookmarks.edit",
+    "description": "bookmarks.edit"
+  },
+  {
+    "name": "bookmarks.list",
+    "category": "bookmarks",
+    "url": "https://docs.slack.dev/reference/methods/bookmarks.list",
+    "description": "bookmarks.list"
+  },
+  {
+    "name": "bookmarks.remove",
+    "category": "bookmarks",
+    "url": "https://docs.slack.dev/reference/methods/bookmarks.remove",
+    "description": "bookmarks.remove"
+  },
+  {
+    "name": "bots.info",
+    "category": "bots",
+    "url": "https://docs.slack.dev/reference/methods/bots.info",
+    "description": "bots"
+  },
+  {
+    "name": "calls.add",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.add",
+    "description": "calls"
+  },
+  {
+    "name": "calls.end",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.end",
+    "description": "calls.end"
+  },
+  {
+    "name": "calls.info",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.info",
+    "description": "calls.info"
+  },
+  {
+    "name": "calls.participants.add",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.participants.add",
+    "description": "calls.participants.add"
+  },
+  {
+    "name": "calls.participants.remove",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.participants.remove",
+    "description": "calls.participants.remove"
+  },
+  {
+    "name": "calls.update",
+    "category": "calls",
+    "url": "https://docs.slack.dev/reference/methods/calls.update",
+    "description": "calls.update"
+  },
+  {
+    "name": "canvases.access.delete",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.access.delete",
+    "description": "canvases"
+  },
+  {
+    "name": "canvases.access.set",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.access.set",
+    "description": "canvases.access.set"
+  },
+  {
+    "name": "canvases.create",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.create",
+    "description": "canvases.create"
+  },
+  {
+    "name": "canvases.delete",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.delete",
+    "description": "canvases.delete"
+  },
+  {
+    "name": "canvases.edit",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.edit",
+    "description": "canvases.edit"
+  },
+  {
+    "name": "canvases.sections.lookup",
+    "category": "canvases",
+    "url": "https://docs.slack.dev/reference/methods/canvases.sections.lookup",
+    "description": "canvases.sections.lookup"
+  },
+  {
+    "name": "chat.appendStream",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.appendStream",
+    "description": "chat"
+  },
+  {
+    "name": "chat.delete",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.delete",
+    "description": "chat.delete"
+  },
+  {
+    "name": "chat.deleteScheduledMessage",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.deleteScheduledMessage",
+    "description": "chat.deleteScheduledMessage"
+  },
+  {
+    "name": "chat.getPermalink",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.getPermalink",
+    "description": "chat.getPermalink"
+  },
+  {
+    "name": "chat.meMessage",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.meMessage",
+    "description": "chat.meMessage"
+  },
+  {
+    "name": "chat.postEphemeral",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.postEphemeral",
+    "description": "chat.postEphemeral"
+  },
+  {
+    "name": "chat.postMessage",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.postMessage",
+    "description": "chat.postMessage"
+  },
+  {
+    "name": "chat.scheduleMessage",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.scheduleMessage",
+    "description": "chat.scheduleMessage"
+  },
+  {
+    "name": "chat.scheduledMessages.list",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.scheduledMessages.list",
+    "description": "chat.scheduledMessages.list"
+  },
+  {
+    "name": "chat.startStream",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.startStream",
+    "description": "chat.startStream"
+  },
+  {
+    "name": "chat.stopStream",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.stopStream",
+    "description": "chat.stopStream"
+  },
+  {
+    "name": "chat.unfurl",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.unfurl",
+    "description": "chat.unfurl"
+  },
+  {
+    "name": "chat.update",
+    "category": "chat",
+    "url": "https://docs.slack.dev/reference/methods/chat.update",
+    "description": "chat.update"
+  },
+  {
+    "name": "conversations.acceptSharedInvite",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.acceptSharedInvite",
+    "description": "conversations"
+  },
+  {
+    "name": "conversations.approveSharedInvite",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.approveSharedInvite",
+    "description": "conversations.approveSharedInvite"
+  },
+  {
+    "name": "conversations.archive",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.archive",
+    "description": "conversations.archive"
+  },
+  {
+    "name": "conversations.canvases.create",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.canvases.create",
+    "description": "conversations.canvases.create"
+  },
+  {
+    "name": "conversations.close",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.close",
+    "description": "conversations.close"
+  },
+  {
+    "name": "conversations.create",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.create",
+    "description": "conversations.create"
+  },
+  {
+    "name": "conversations.declineSharedInvite",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.declineSharedInvite",
+    "description": "conversations.declineSharedInvite"
+  },
+  {
+    "name": "conversations.externalInvitePermissions.set",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.externalInvitePermissions.set",
+    "description": "conversations.externalInvitePermissions.set"
+  },
+  {
+    "name": "conversations.history",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.history",
+    "description": "conversations.history"
+  },
+  {
+    "name": "conversations.info",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.info",
+    "description": "conversations.info"
+  },
+  {
+    "name": "conversations.invite",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.invite",
+    "description": "conversations.invite"
+  },
+  {
+    "name": "conversations.inviteShared",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.inviteShared",
+    "description": "conversations.inviteShared"
+  },
+  {
+    "name": "conversations.join",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.join",
+    "description": "conversations.join"
+  },
+  {
+    "name": "conversations.kick",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.kick",
+    "description": "conversations.kick"
+  },
+  {
+    "name": "conversations.leave",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.leave",
+    "description": "conversations.leave"
+  },
+  {
+    "name": "conversations.list",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.list",
+    "description": "conversations.list"
+  },
+  {
+    "name": "conversations.listConnectInvites",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.listConnectInvites",
+    "description": "conversations.listConnectInvites"
+  },
+  {
+    "name": "conversations.mark",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.mark",
+    "description": "conversations.mark"
+  },
+  {
+    "name": "conversations.members",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.members",
+    "description": "conversations.members"
+  },
+  {
+    "name": "conversations.open",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.open",
+    "description": "conversations.open"
+  },
+  {
+    "name": "conversations.rename",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.rename",
+    "description": "conversations.rename"
+  },
+  {
+    "name": "conversations.replies",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.replies",
+    "description": "conversations.replies"
+  },
+  {
+    "name": "conversations.requestSharedInvite.approve",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.requestSharedInvite.approve",
+    "description": "conversations.requestSharedInvite.approve"
+  },
+  {
+    "name": "conversations.requestSharedInvite.deny",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.requestSharedInvite.deny",
+    "description": "conversations.requestSharedInvite.deny"
+  },
+  {
+    "name": "conversations.requestSharedInvite.list",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.requestSharedInvite.list",
+    "description": "conversations.requestSharedInvite.list"
+  },
+  {
+    "name": "conversations.setPurpose",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.setPurpose",
+    "description": "conversations.setPurpose"
+  },
+  {
+    "name": "conversations.setTopic",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.setTopic",
+    "description": "conversations.setTopic"
+  },
+  {
+    "name": "conversations.unarchive",
+    "category": "conversations",
+    "url": "https://docs.slack.dev/reference/methods/conversations.unarchive",
+    "description": "conversations.unarchive"
+  },
+  {
+    "name": "dialog.open",
+    "category": "dialog",
+    "url": "https://docs.slack.dev/reference/methods/dialog.open",
+    "description": "dialog"
+  },
+  {
+    "name": "dnd.endDnd",
+    "category": "dnd",
+    "url": "https://docs.slack.dev/reference/methods/dnd.endDnd",
+    "description": "dnd"
+  },
+  {
+    "name": "dnd.endSnooze",
+    "category": "dnd",
+    "url": "https://docs.slack.dev/reference/methods/dnd.endSnooze",
+    "description": "dnd.endSnooze"
+  },
+  {
+    "name": "dnd.info",
+    "category": "dnd",
+    "url": "https://docs.slack.dev/reference/methods/dnd.info",
+    "description": "dnd.info"
+  },
+  {
+    "name": "dnd.setSnooze",
+    "category": "dnd",
+    "url": "https://docs.slack.dev/reference/methods/dnd.setSnooze",
+    "description": "dnd.setSnooze"
+  },
+  {
+    "name": "dnd.teamInfo",
+    "category": "dnd",
+    "url": "https://docs.slack.dev/reference/methods/dnd.teamInfo",
+    "description": "dnd.teamInfo"
+  },
+  {
+    "name": "emoji.list",
+    "category": "emoji",
+    "url": "https://docs.slack.dev/reference/methods/emoji.list",
+    "description": "emoji"
+  },
+  {
+    "name": "entity.presentDetails",
+    "category": "entity",
+    "url": "https://docs.slack.dev/reference/methods/entity.presentDetails",
+    "description": "entity"
+  },
+  {
+    "name": "files.comments.delete",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.comments.delete",
+    "description": "files"
+  },
+  {
+    "name": "files.completeUploadExternal",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.completeUploadExternal",
+    "description": "files.completeUploadExternal"
+  },
+  {
+    "name": "files.delete",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.delete",
+    "description": "files.delete"
+  },
+  {
+    "name": "files.getUploadURLExternal",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.getUploadURLExternal",
+    "description": "files.getUploadURLExternal"
+  },
+  {
+    "name": "files.info",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.info",
+    "description": "files.info"
+  },
+  {
+    "name": "files.list",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.list",
+    "description": "files.list"
+  },
+  {
+    "name": "files.remote.add",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.add",
+    "description": "files.remote.add"
+  },
+  {
+    "name": "files.remote.info",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.info",
+    "description": "files.remote.info"
+  },
+  {
+    "name": "files.remote.list",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.list",
+    "description": "files.remote.list"
+  },
+  {
+    "name": "files.remote.remove",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.remove",
+    "description": "files.remote.remove"
+  },
+  {
+    "name": "files.remote.share",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.share",
+    "description": "files.remote.share"
+  },
+  {
+    "name": "files.remote.update",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.remote.update",
+    "description": "files.remote.update"
+  },
+  {
+    "name": "files.revokePublicURL",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.revokePublicURL",
+    "description": "files.revokePublicURL"
+  },
+  {
+    "name": "files.sharedPublicURL",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.sharedPublicURL",
+    "description": "files.sharedPublicURL"
+  },
+  {
+    "name": "files.upload",
+    "category": "files",
+    "url": "https://docs.slack.dev/reference/methods/files.upload",
+    "description": "files.upload"
+  },
+  {
+    "name": "functions.completeError",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.completeError",
+    "description": "functions"
+  },
+  {
+    "name": "functions.completeSuccess",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.completeSuccess",
+    "description": "functions.completeSuccess"
+  },
+  {
+    "name": "functions.distributions.permissions.add",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.distributions.permissions.add",
+    "description": "functions.distributions.permissions.add"
+  },
+  {
+    "name": "functions.distributions.permissions.list",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.distributions.permissions.list",
+    "description": "functions.distributions.permissions.list"
+  },
+  {
+    "name": "functions.distributions.permissions.remove",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.distributions.permissions.remove",
+    "description": "functions.distributions.permissions.remove"
+  },
+  {
+    "name": "functions.distributions.permissions.set",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.distributions.permissions.set",
+    "description": "functions.distributions.permissions.set"
+  },
+  {
+    "name": "functions.workflows.steps.list",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.workflows.steps.list",
+    "description": "functions.workflows.steps.list"
+  },
+  {
+    "name": "functions.workflows.steps.responses.export",
+    "category": "functions",
+    "url": "https://docs.slack.dev/reference/methods/functions.workflows.steps.responses.export",
+    "description": "functions.workflows.steps.responses.export"
+  },
+  {
+    "name": "migration.exchange",
+    "category": "migration",
+    "url": "https://docs.slack.dev/reference/methods/migration.exchange",
+    "description": "migration"
+  },
+  {
+    "name": "oauth.access",
+    "category": "oauth",
+    "url": "https://docs.slack.dev/reference/methods/oauth.access",
+    "description": "oauth"
+  },
+  {
+    "name": "oauth.v2.access",
+    "category": "oauth",
+    "url": "https://docs.slack.dev/reference/methods/oauth.v2.access",
+    "description": "oauth.v2.access"
+  },
+  {
+    "name": "oauth.v2.exchange",
+    "category": "oauth",
+    "url": "https://docs.slack.dev/reference/methods/oauth.v2.exchange",
+    "description": "oauth.v2.exchange"
+  },
+  {
+    "name": "openid.connect.token",
+    "category": "openid",
+    "url": "https://docs.slack.dev/reference/methods/openid.connect.token",
+    "description": "openid"
+  },
+  {
+    "name": "openid.connect.userInfo",
+    "category": "openid",
+    "url": "https://docs.slack.dev/reference/methods/openid.connect.userInfo",
+    "description": "openid.connect.userInfo"
+  },
+  {
+    "name": "pins.add",
+    "category": "pins",
+    "url": "https://docs.slack.dev/reference/methods/pins.add",
+    "description": "pins"
+  },
+  {
+    "name": "pins.list",
+    "category": "pins",
+    "url": "https://docs.slack.dev/reference/methods/pins.list",
+    "description": "pins.list"
+  },
+  {
+    "name": "pins.remove",
+    "category": "pins",
+    "url": "https://docs.slack.dev/reference/methods/pins.remove",
+    "description": "pins.remove"
+  },
+  {
+    "name": "reactions.add",
+    "category": "reactions",
+    "url": "https://docs.slack.dev/reference/methods/reactions.add",
+    "description": "reactions"
+  },
+  {
+    "name": "reactions.get",
+    "category": "reactions",
+    "url": "https://docs.slack.dev/reference/methods/reactions.get",
+    "description": "reactions.get"
+  },
+  {
+    "name": "reactions.list",
+    "category": "reactions",
+    "url": "https://docs.slack.dev/reference/methods/reactions.list",
+    "description": "reactions.list"
+  },
+  {
+    "name": "reactions.remove",
+    "category": "reactions",
+    "url": "https://docs.slack.dev/reference/methods/reactions.remove",
+    "description": "reactions.remove"
+  },
+  {
+    "name": "reminders.add",
+    "category": "reminders",
+    "url": "https://docs.slack.dev/reference/methods/reminders.add",
+    "description": "reminders"
+  },
+  {
+    "name": "reminders.complete",
+    "category": "reminders",
+    "url": "https://docs.slack.dev/reference/methods/reminders.complete",
+    "description": "reminders.complete"
+  },
+  {
+    "name": "reminders.delete",
+    "category": "reminders",
+    "url": "https://docs.slack.dev/reference/methods/reminders.delete",
+    "description": "reminders.delete"
+  },
+  {
+    "name": "reminders.info",
+    "category": "reminders",
+    "url": "https://docs.slack.dev/reference/methods/reminders.info",
+    "description": "reminders.info"
+  },
+  {
+    "name": "reminders.list",
+    "category": "reminders",
+    "url": "https://docs.slack.dev/reference/methods/reminders.list",
+    "description": "reminders.list"
+  },
+  {
+    "name": "rtm.connect",
+    "category": "rtm",
+    "url": "https://docs.slack.dev/reference/methods/rtm.connect",
+    "description": "rtm"
+  },
+  {
+    "name": "rtm.start",
+    "category": "rtm",
+    "url": "https://docs.slack.dev/reference/methods/rtm.start",
+    "description": "rtm.start"
+  },
+  {
+    "name": "search.all",
+    "category": "search",
+    "url": "https://docs.slack.dev/reference/methods/search.all",
+    "description": "search"
+  },
+  {
+    "name": "search.files",
+    "category": "search",
+    "url": "https://docs.slack.dev/reference/methods/search.files",
+    "description": "search.files"
+  },
+  {
+    "name": "search.messages",
+    "category": "search",
+    "url": "https://docs.slack.dev/reference/methods/search.messages",
+    "description": "search.messages"
+  },
+  {
+    "name": "slackLists.access.delete",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.access.delete",
+    "description": "lists"
+  },
+  {
+    "name": "slackLists.access.set",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.access.set",
+    "description": "slackLists.access.set"
+  },
+  {
+    "name": "slackLists.create",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.create",
+    "description": "slackLists.create"
+  },
+  {
+    "name": "slackLists.download.get",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.download.get",
+    "description": "slackLists.download.get"
+  },
+  {
+    "name": "slackLists.download.start",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.download.start",
+    "description": "slackLists.download.start"
+  },
+  {
+    "name": "slackLists.items.create",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.create",
+    "description": "slackLists.items.create"
+  },
+  {
+    "name": "slackLists.items.delete",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.delete",
+    "description": "slackLists.items.delete"
+  },
+  {
+    "name": "slackLists.items.deleteMultiple",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.deleteMultiple",
+    "description": "slackLists.items.deleteMultiple"
+  },
+  {
+    "name": "slackLists.items.info",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.info",
+    "description": "slackLists.items.info"
+  },
+  {
+    "name": "slackLists.items.list",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.list",
+    "description": "slackLists.items.list"
+  },
+  {
+    "name": "slackLists.items.update",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.items.update",
+    "description": "slackLists.items.update"
+  },
+  {
+    "name": "slackLists.update",
+    "category": "slackLists",
+    "url": "https://docs.slack.dev/reference/methods/slackLists.update",
+    "description": "slackLists.update"
+  },
+  {
+    "name": "stars.add",
+    "category": "stars",
+    "url": "https://docs.slack.dev/reference/methods/stars.add",
+    "description": "stars"
+  },
+  {
+    "name": "stars.list",
+    "category": "stars",
+    "url": "https://docs.slack.dev/reference/methods/stars.list",
+    "description": "stars.list"
+  },
+  {
+    "name": "stars.remove",
+    "category": "stars",
+    "url": "https://docs.slack.dev/reference/methods/stars.remove",
+    "description": "stars.remove"
+  },
+  {
+    "name": "team.accessLogs",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.accessLogs",
+    "description": "team"
+  },
+  {
+    "name": "team.billableInfo",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.billableInfo",
+    "description": "team.billableInfo"
+  },
+  {
+    "name": "team.billing.info",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.billing.info",
+    "description": "team.billing.info"
+  },
+  {
+    "name": "team.externalTeams.disconnect",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.externalTeams.disconnect",
+    "description": "team.externalTeams.disconnect"
+  },
+  {
+    "name": "team.externalTeams.list",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.externalTeams.list",
+    "description": "team.externalTeams.list"
+  },
+  {
+    "name": "team.info",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.info",
+    "description": "team.info"
+  },
+  {
+    "name": "team.integrationLogs",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.integrationLogs",
+    "description": "team.integrationLogs"
+  },
+  {
+    "name": "team.preferences.list",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.preferences.list",
+    "description": "team.preferences.list"
+  },
+  {
+    "name": "team.profile.get",
+    "category": "team",
+    "url": "https://docs.slack.dev/reference/methods/team.profile.get",
+    "description": "team.profile.get"
+  },
+  {
+    "name": "tooling.tokens.rotate",
+    "category": "tooling",
+    "url": "https://docs.slack.dev/reference/methods/tooling.tokens.rotate",
+    "description": "tooling"
+  },
+  {
+    "name": "usergroups.create",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.create",
+    "description": "usergroups"
+  },
+  {
+    "name": "usergroups.disable",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.disable",
+    "description": "usergroups.disable"
+  },
+  {
+    "name": "usergroups.enable",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.enable",
+    "description": "usergroups.enable"
+  },
+  {
+    "name": "usergroups.list",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.list",
+    "description": "usergroups.list"
+  },
+  {
+    "name": "usergroups.update",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.update",
+    "description": "usergroups.update"
+  },
+  {
+    "name": "usergroups.users.list",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.users.list",
+    "description": "usergroups.users.list"
+  },
+  {
+    "name": "usergroups.users.update",
+    "category": "usergroups",
+    "url": "https://docs.slack.dev/reference/methods/usergroups.users.update",
+    "description": "usergroups.users.update"
+  },
+  {
+    "name": "users.conversations",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.conversations",
+    "description": "users"
+  },
+  {
+    "name": "users.deletePhoto",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.deletePhoto",
+    "description": "users.deletePhoto"
+  },
+  {
+    "name": "users.discoverableContacts.lookup",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.discoverableContacts.lookup",
+    "description": "users.discoverableContacts.lookup"
+  },
+  {
+    "name": "users.getPresence",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.getPresence",
+    "description": "users.getPresence"
+  },
+  {
+    "name": "users.identity",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.identity",
+    "description": "users.identity"
+  },
+  {
+    "name": "users.info",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.info",
+    "description": "users.info"
+  },
+  {
+    "name": "users.list",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.list",
+    "description": "users.list"
+  },
+  {
+    "name": "users.lookupByEmail",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.lookupByEmail",
+    "description": "users.lookupByEmail"
+  },
+  {
+    "name": "users.profile.get",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.profile.get",
+    "description": "users.profile.get"
+  },
+  {
+    "name": "users.profile.set",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.profile.set",
+    "description": "users.profile.set"
+  },
+  {
+    "name": "users.setActive",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.setActive",
+    "description": "users.setActive"
+  },
+  {
+    "name": "users.setPhoto",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.setPhoto",
+    "description": "users.setPhoto"
+  },
+  {
+    "name": "users.setPresence",
+    "category": "users",
+    "url": "https://docs.slack.dev/reference/methods/users.setPresence",
+    "description": "users.setPresence"
+  },
+  {
+    "name": "views.open",
+    "category": "views",
+    "url": "https://docs.slack.dev/reference/methods/views.open",
+    "description": "views"
+  },
+  {
+    "name": "views.publish",
+    "category": "views",
+    "url": "https://docs.slack.dev/reference/methods/views.publish",
+    "description": "views.publish"
+  },
+  {
+    "name": "views.push",
+    "category": "views",
+    "url": "https://docs.slack.dev/reference/methods/views.push",
+    "description": "views.push"
+  },
+  {
+    "name": "views.update",
+    "category": "views",
+    "url": "https://docs.slack.dev/reference/methods/views.update",
+    "description": "views.update"
+  },
+  {
+    "name": "workflows.featured.add",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.featured.add",
+    "description": "workflows"
+  },
+  {
+    "name": "workflows.featured.list",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.featured.list",
+    "description": "workflows.featured.list"
+  },
+  {
+    "name": "workflows.featured.remove",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.featured.remove",
+    "description": "workflows.featured.remove"
+  },
+  {
+    "name": "workflows.featured.set",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.featured.set",
+    "description": "workflows.featured.set"
+  },
+  {
+    "name": "workflows.triggers.permissions.add",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.triggers.permissions.add",
+    "description": "workflows.triggers.permissions.add"
+  },
+  {
+    "name": "workflows.triggers.permissions.list",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.triggers.permissions.list",
+    "description": "workflows.triggers.permissions.list"
+  },
+  {
+    "name": "workflows.triggers.permissions.remove",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.triggers.permissions.remove",
+    "description": "workflows.triggers.permissions.remove"
+  },
+  {
+    "name": "workflows.triggers.permissions.set",
+    "category": "workflows",
+    "url": "https://docs.slack.dev/reference/methods/workflows.triggers.permissions.set",
+    "description": "workflows.triggers.permissions.set"
+  }
+]

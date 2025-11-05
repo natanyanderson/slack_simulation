@@ -1,0 +1,14 @@
+# Core Slack dependencies
+slack-bolt
+slack-sdk
+
+# AI/LLM
+openai
+
+# Environment management
+python-dotenv
+
+# Web scraping
+requests
+beautifulsoup4
+lxml
