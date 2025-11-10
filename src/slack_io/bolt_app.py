@@ -8,6 +8,7 @@ from .seed_scheduler import start_seeders
 from .autonomous_loop import start_autonomous_loop, add_real_message_to_history
 from .artifact_server import start_server as start_artifact_server
 from .artifacts import load_artifacts
+from .read_only_assistant import handle_dm, handle_mention, handle_slash_command, handle_user_query
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -26,9 +27,14 @@ app = App(
 # Preflight auth check to surface bad tokens early
 try:
     whoami = app.client.auth_test()
-    logging.info(f"[startup] Bot connected as user_id={whoami.get('user_id')} team={whoami.get('team')} ({whoami.get('team_id')})")
+    bot_user_id = whoami.get('user_id')
+    logging.info(f"[startup] Bot connected as user_id={bot_user_id} team={whoami.get('team')} ({whoami.get('team_id')})")
 except Exception as e:
     logging.error(f"[startup] auth_test failed. Check SLACK_BOT_TOKEN / installation. Error: {e}")
+    bot_user_id = None
+
+# Store bot user ID for mention detection
+BOT_USER_ID = bot_user_id
 
 # On app start, build channel maps (optional but recommended)
 @app.event("app_home_opened")
@@ -47,16 +53,46 @@ def build_maps(event, logger):
     except Exception as e:
         logger.error(f"Failed to load channels: {e}")
 
+# Read-only assistant handlers (must come before general message handler)
+
 @app.event("message")
 def handle_message_events(body, event, logger, say):
-    # let the conductor decide if anyone replies
-    # Don't early-return on bot_message; the conductor will guard loops.
+    """
+    Handle all messages. Check for DMs first, then pass to conductor.
+    """
     ch = event.get("channel")
     ts = event.get("ts")
     subtype = event.get("subtype")
     username = event.get("username", "unknown")
     text_preview = event.get("text", "")[:50]
-    logger.info(f"[BOLT] Received message - Channel: {ch}, TS: {ts}, Subtype: {subtype}, User: {username}, Text: {text_preview}...")
+    channel_type = event.get("channel_type")
+    
+    logger.info(f"[BOLT] Received message - Channel: {ch}, TS: {ts}, Subtype: {subtype}, User: {username}, Channel Type: {channel_type}, Text: {text_preview}...")
+    
+    # Check if this is a DM (channel IDs starting with 'D' are DMs)
+    # Also check channel_type for 'im'
+    is_dm = (channel_type == "im") or (ch and ch.startswith("D"))
+    if is_dm and not subtype:
+        # This is a direct message to the bot
+        logger.info(f"[BOLT] Detected DM (channel={ch}), routing to read-only assistant")
+        try:
+            handle_dm(event, say)
+        except Exception as e:
+            logger.error(f"[BOLT] Error handling DM: {e}", exc_info=True)
+        return  # Don't pass to conductor
+    
+    # Check if bot is mentioned in the message
+    text = event.get("text", "")
+    if BOT_USER_ID and f"<@{BOT_USER_ID}>" in text and not subtype:
+        logger.info(f"[BOLT] Detected @mention, routing to read-only assistant")
+        try:
+            handle_mention(event, say)
+        except Exception as e:
+            logger.error(f"[BOLT] Error handling mention: {e}", exc_info=True)
+        return  # Don't pass to conductor for mentions
+    
+    # For all other messages, let the conductor decide if anyone replies
+    # Don't early-return on bot_message; the conductor will guard loops.
     
     # Add to autonomous history if it's a real message
     add_real_message_to_history(event)
@@ -66,6 +102,32 @@ def handle_message_events(body, event, logger, say):
         maybe_handle_event(event)
     except Exception as e:
         logger.error(f"[BOLT] Error in conductor: {e}", exc_info=True)
+
+
+@app.event("app_mention")
+def handle_app_mention(event, say, logger):
+    """
+    Handle @mentions of the bot (alternative handler).
+    This is more reliable than parsing mentions in message handler.
+    """
+    logger.info(f"[BOLT] Received app_mention event")
+    try:
+        handle_mention(event, say)
+    except Exception as e:
+        logger.error(f"[BOLT] Error handling app_mention: {e}", exc_info=True)
+
+
+@app.command("/slackbench")
+def handle_slackbench_command(ack, command, respond, logger):
+    """
+    Handle /slackbench slash command.
+    """
+    logger.info(f"[BOLT] Received /slackbench command from {command.get('user_id')}")
+    try:
+        handle_slash_command(ack, command, respond)
+    except Exception as e:
+        logger.error(f"[BOLT] Error handling slash command: {e}", exc_info=True)
+        respond(text=f"Error: {str(e)}", response_type="ephemeral")
 
 # Also listen for bot messages explicitly
 @app.event({"type": "message", "subtype": "bot_message"})
