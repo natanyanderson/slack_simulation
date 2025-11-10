@@ -7,6 +7,7 @@ from ...slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
 from ..validators import validate_channel_id, validate_limit
 from ..cache import set_channel_id, get_channel_id
+from ..timestamp_formatter import format_messages_timestamps
 import time
 
 
@@ -126,10 +127,13 @@ def get_channel_history(
         
         messages = response.get("messages", [])
         
+        # Format timestamps in messages
+        formatted_messages = format_messages_timestamps(messages)
+        
         return {
             "success": True,
             "data": {
-                "messages": messages,
+                "messages": formatted_messages,
                 "meta": {
                     "total": len(messages),
                     "has_more": response.get("has_more", False),
@@ -267,10 +271,13 @@ def get_thread_replies(
         
         messages = response.get("messages", [])
         
+        # Format timestamps in messages
+        formatted_messages = format_messages_timestamps(messages)
+        
         return {
             "success": True,
             "data": {
-                "messages": messages,
+                "messages": formatted_messages,
                 "meta": {
                     "total": len(messages),
                     "has_more": response.get("has_more", False),

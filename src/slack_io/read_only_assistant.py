@@ -32,6 +32,7 @@ When answering questions:
 - Use tools to gather information before responding
 - Provide clear, concise answers
 - Include relevant details like channel names, user names, timestamps
+- Timestamps are already formatted as human-readable dates (YYYY-MM-DD HH:MM:SS format)
 
 **IMPORTANT - Tool Result Handling:**
 - Check the tool result's "success" field first
@@ -39,7 +40,17 @@ When answering questions:
 - If success is false: Check the "error.message" field and use that exact message to explain the issue to the user.
 - Never say "I'm unable to retrieve" or "technical issue" unless the tool explicitly returns success: false with an error.
 
-- For search results, summarize key findings
+- For search results, summarize key findings and verify they're relevant to the query
+- When search results are returned, check if they actually match what the user asked for
+- If search results don't seem relevant, mention this to the user and suggest refining the query
+- **IMPORTANT**: If search_messages fails with "not_allowed_token_type" or "missing_scope", this means 
+  the search API requires a user token. In this case, offer to search specific channels instead using 
+  get_channel_history. For example: "I can't use the global search, but I can search specific channels 
+  for you. Which channels should I check?"
+- **CRITICAL - Message Filtering**: When using get_channel_history to search for specific topics, you MUST 
+  filter the messages to only include those that are actually relevant to the user's query. Do NOT return 
+  all messages from a channel - only return messages that contain keywords or phrases related to what the 
+  user asked for. If a channel has no relevant messages, say so clearly rather than returning unrelated messages.
 - For message history, provide context and highlights
 - For channel lists, list the channel names and brief details
 
@@ -305,13 +316,19 @@ def handle_mention(event: Dict[str, Any], say) -> None:
     
     # Remove bot mention from text
     try:
-        bot_user_id = bolt_app.client.auth_test().get("user_id")
-        text = text.replace(f"<@{bot_user_id}>", "").strip()
+        auth_result = bolt_app.client.auth_test()
+        if auth_result and isinstance(auth_result, dict):
+            bot_user_id = auth_result.get("user_id")
+            if bot_user_id:
+                text = text.replace(f"<@{bot_user_id}>", "").strip()
         # Also remove any other mentions that might be in the text
         import re
         text = re.sub(r'<@[A-Z0-9]+>', '', text).strip()
-    except:
-        # If we can't get bot user ID, just strip common patterns
+    except Exception as e:
+        logger.warning(f"Error getting bot user ID: {e}")
+        # Fallback: just remove all mentions
+        import re
+        text = re.sub(r'<@[A-Z0-9]+>', '', text).strip()
         text = text.replace("@slackbench", "").replace("@SlackBench", "").strip()
     
     if not text:

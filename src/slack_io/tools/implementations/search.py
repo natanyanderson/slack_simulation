@@ -5,6 +5,8 @@ from typing import Dict, Any, Optional
 from slack_sdk.errors import SlackApiError
 from ...slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
+from ..timestamp_formatter import format_message_timestamps
+from ..query_optimizer import optimize_search_query, validate_search_result
 
 
 def search_messages(
@@ -30,6 +32,9 @@ def search_messages(
         if not query or not query.strip():
             return create_error_response("invalid_query", "Search query is required", "search_messages")
         
+        # Optimize query for Slack's search syntax
+        optimized_query = optimize_search_query(query)
+        
         # Validate count
         count = count or 20
         if count < 1:
@@ -47,7 +52,7 @@ def search_messages(
         
         # Build parameters
         params = {
-            "query": query,
+            "query": optimized_query,  # Use optimized query
             "sort": sort,
             "sort_dir": sort_dir,
             "count": count
@@ -62,14 +67,36 @@ def search_messages(
         messages = response.get("messages", {})
         matches = messages.get("matches", [])
         
+        # Validate and filter results for relevance
+        validated_matches = []
+        filtered_count = 0
+        for match in matches:
+            is_relevant, relevance_score = validate_search_result(match, query)
+            
+            if is_relevant:
+                # Format timestamps
+                formatted_match = format_message_timestamps(match)
+                # Add relevance score for debugging/ranking
+                formatted_match["_relevance_score"] = relevance_score
+                validated_matches.append(formatted_match)
+            else:
+                filtered_count += 1
+        
+        # Update messages dict with validated and formatted matches
+        formatted_messages = messages.copy()
+        formatted_messages["matches"] = validated_matches
+        
         return {
             "success": True,
             "data": {
-                "messages": messages,
+                "messages": formatted_messages,
                 "meta": {
                     "total": messages.get("total", 0),
-                    "matches_count": len(matches),
-                    "query": query,
+                    "matches_count": len(validated_matches),
+                    "filtered_count": filtered_count,  # How many were filtered out
+                    "original_query": query,
+                    "optimized_query": optimized_query,  # Show what was actually searched
+                    "query": optimized_query,  # Keep for backwards compatibility
                     "pagination": messages.get("pagination", {})
                 }
             },

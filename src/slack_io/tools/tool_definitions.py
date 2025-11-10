@@ -177,13 +177,13 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "search_messages",
-            "description": "Search for messages in the workspace. Use this to find messages by keyword, user, channel, or date range.",
+            "description": "⚠️ LIMITATION: This tool requires a user token and may not work with bot tokens. If it fails, use get_channel_history on specific channels instead. Search for messages in the workspace. IMPORTANT: For exact phrase matching (3+ words), wrap phrases in double quotes. The system will automatically optimize queries for best results. Examples: '\"exact phrase\"', 'payment gateway', 'from:@username', 'in:#channel'.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (e.g., 'oncall runbook', 'from:@alice', 'in:#frontend'). Required."
+                        "description": "Search query. For exact phrases (3+ words like 'prioritizing the payment gateway tests'), the system will automatically wrap them in quotes for better matching. For keywords, use space-separated terms. Supports modifiers: 'from:@user', 'in:#channel'. Examples: '\"payment gateway tests\"', 'deployment error', 'from:@alice in:#frontend'. The system will automatically optimize your query for best results."
                     },
                     "sort": {
                         "type": "string",

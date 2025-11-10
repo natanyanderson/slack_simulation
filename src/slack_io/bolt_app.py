@@ -91,17 +91,21 @@ def handle_message_events(body, event, logger, say):
             logger.error(f"[BOLT] Error handling mention: {e}", exc_info=True)
         return  # Don't pass to conductor for mentions
     
+    # DISABLED: Conductor disabled for testing read-only assistant
     # For all other messages, let the conductor decide if anyone replies
     # Don't early-return on bot_message; the conductor will guard loops.
     
     # Add to autonomous history if it's a real message
-    add_real_message_to_history(event)
+    # add_real_message_to_history(event)
     
     # Pass full event to conductor
-    try:
-        maybe_handle_event(event)
-    except Exception as e:
-        logger.error(f"[BOLT] Error in conductor: {e}", exc_info=True)
+    # try:
+    #     maybe_handle_event(event)
+    # except Exception as e:
+    #     logger.error(f"[BOLT] Error in conductor: {e}", exc_info=True)
+    
+    # Skip conductor - only read-only assistant is active
+    logger.debug(f"[BOLT] Skipping conductor - read-only assistant only mode")
 
 
 @app.event("app_mention")
@@ -130,14 +134,15 @@ def handle_slackbench_command(ack, command, respond, logger):
         respond(text=f"Error: {str(e)}", response_type="ephemeral")
 
 # Also listen for bot messages explicitly
-@app.event({"type": "message", "subtype": "bot_message"})
-def handle_bot_messages(body, event, logger, say):
-    # This will catch bot messages that might be skipped by the regular message handler
-    logger.info(f"[BOLT] Received bot message - Channel: {event.get('channel')}, User: {event.get('username')}")
-    try:
-        maybe_handle_event(event)
-    except Exception as e:
-        logger.error(f"[BOLT] Error in conductor (bot): {e}", exc_info=True)
+# DISABLED: Bot message handler disabled for testing read-only assistant
+# @app.event({"type": "message", "subtype": "bot_message"})
+# def handle_bot_messages(body, event, logger, say):
+#     # This will catch bot messages that might be skipped by the regular message handler
+#     logger.info(f"[BOLT] Received bot message - Channel: {event.get('channel')}, User: {event.get('username')}")
+#     try:
+#         maybe_handle_event(event)
+#     except Exception as e:
+#         logger.error(f"[BOLT] Error in conductor (bot): {e}", exc_info=True)
 
 def load_channel_maps(app, logger):
     """Build initial channel ID ↔ name mappings at startup"""
@@ -185,11 +190,13 @@ def run_socket_mode():
     start_artifact_server()
     
     # Start autonomous simulation loop (like slackbench_sim)
-    start_autonomous_loop()
+    # DISABLED: Commented out for testing read-only assistant without autonomous agents
+    # start_autonomous_loop()
     
     # Start scheduled events (standups, status summaries)
-    from .scheduled_events import start_scheduled_events
-    start_scheduled_events()
+    # DISABLED: Commented out for testing read-only assistant without autonomous agents
+    # from .scheduled_events import start_scheduled_events
+    # start_scheduled_events()
     
     # Start seeders (optional, less needed with autonomous loop)
     # start_seeders(
@@ -198,6 +205,8 @@ def run_socket_mode():
     #     noise_every_s=20,
     #     noise_prob=0.03
     # )
+    
+    logging.info("Autonomous agents disabled - read-only assistant only")
     
     handler = SocketModeHandler(app, app_token)
     handler.start()

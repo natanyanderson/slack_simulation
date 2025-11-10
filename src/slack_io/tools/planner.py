@@ -21,8 +21,27 @@ PLANNING_SYSTEM_PROMPT = """You have access to Slack read-only tools. When answe
    - Then: get_channel_history (to get messages)
    - Then: get_user_info (to resolve user IDs to names if needed)
 
-4. **Search First**: For search queries, use search_messages first, then optionally get more context 
-   with get_channel_history if needed.
+4. **Search Strategy**: 
+   - **IMPORTANT**: The search_messages API requires a user token and may fail with bot tokens.
+   - If search_messages fails, use an alternative approach: list_channels to find relevant channels, 
+     then use get_channel_history on those channels to search manually
+   - For search queries, try search_messages first, but if it fails with "not_allowed_token_type" 
+     or "missing_scope", fall back to searching specific channels using get_channel_history
+   
+   **Search Query Tips**:
+   - For exact phrases (like "prioritizing the payment gateway tests"), the system will automatically 
+     wrap them in quotes for better matching
+   - For keyword searches, use space-separated terms
+   - Use modifiers: 'from:@user' for specific users, 'in:#channel' for specific channels
+   - After getting search results, validate that they're relevant to the user's question
+   
+   **Alternative Search Method** (when search_messages fails):
+   - Use list_channels to find channels that might contain the information
+   - Use get_channel_history on those channels to search for messages containing the keywords
+   - This works with bot tokens and is more reliable
+   - **CRITICAL**: After getting channel history, you MUST filter messages to only include those 
+     that actually contain the search keywords. Do NOT return all messages - only return messages 
+     that match the user's query. If no messages match, report that clearly.
 
 5. **Thread Access**: For thread-related questions, you need:
    - Channel ID (from list_channels if needed)
