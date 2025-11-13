@@ -177,12 +177,228 @@ The scraper outputs JSON files with the following structure:
 - `scraper/slack_api_all_methods_scraped.json` - Complete scraped results (all methods)
 - `slack_api_all_methods.json` - Input file with list of all Slack API methods
 
+## Function Calling Architecture
+
+The read-only assistant uses OpenAI's function calling feature to interact with Slack data. The system supports two data sources: **API mode** (live Slack API) and **JSON mode** (exported Slack data).
+
+### How Function Calling Works
+
+1. **User Query**: User sends a message via DM, @mention, or `/slackbench` command
+2. **GPT-4o Processing**: The assistant receives the query and decides which tools to call
+3. **Tool Execution**: Tools are executed via the router, which selects the appropriate implementation
+4. **Response Generation**: GPT-4o uses tool results to generate a natural language response
+
+### Architecture Overview
+
+```
+User Query
+    ↓
+read_only_assistant.py (GPT-4o)
+    ↓
+Tool Definitions (OpenAI function schemas)
+    ↓
+read_only_router.py (Router)
+    ↓
+┌─────────────────┬─────────────────┐
+│   API Mode      │   JSON Mode     │
+│                 │                 │
+│ implementations/│ implementations/│
+│  conversations  │  json/          │
+│  users          │   conversations │
+│  search         │   users         │
+│                 │   search        │
+│                 │                 │
+│ → Slack API     │ → JSON Files    │
+└─────────────────┴─────────────────┘
+```
+
+### Data Source Selection
+
+The system automatically selects between API and JSON implementations based on the `SLACK_DATA_SOURCE` environment variable:
+
+- **API Mode** (`SLACK_DATA_SOURCE=api`): Uses live Slack API calls
+- **JSON Mode** (`SLACK_DATA_SOURCE=json`): Uses exported JSON files
+
+The selection happens dynamically via `tool_definitions.py` → `_get_implementation_path()`, which reads from `config.py` → `get_data_source_type()`.
+
+### API Mode Implementation
+
+**How it works:**
+1. Router receives tool call (e.g., `search_messages`)
+2. Router loads implementation from `implementations/search.py`
+3. Implementation makes HTTP request to Slack API
+4. Response is formatted and returned to GPT-4o
+
+**Example Flow:**
+```
+search_messages("SN4")
+    ↓
+implementations/search.py
+    ↓
+bolt_app.client.search_messages(query="SN4")
+    ↓
+Slack API (live workspace)
+    ↓
+Formatted response → GPT-4o
+```
+
+**Available Tools (API Mode):**
+- `list_channels` - Calls `conversations.list`
+- `get_channel_history` - Calls `conversations.history`
+- `get_channel_members` - Calls `conversations.members`
+- `get_thread_replies` - Calls `conversations.replies`
+- `get_user_info` - Calls `users.info`
+- `list_users` - Calls `users.list`
+- `search_messages` - Calls `search.messages` (⚠️ requires user token)
+- `get_team_info` - Calls `team.info`
+
+**Limitations:**
+- `search.messages` requires a user token (xoxp-), not a bot token (xoxb-)
+- Rate limits apply (Slack API rate limits)
+- Requires active Slack workspace connection
+
+### JSON Mode Implementation
+
+**How it works:**
+1. Router receives tool call (e.g., `search_messages`)
+2. Router loads implementation from `implementations/json/search.py`
+3. Implementation loads data from JSON files (compiled or per-channel)
+4. In-memory search/filtering is performed
+5. Response is formatted and returned to GPT-4o
+
+**Example Flow:**
+```
+search_messages("SN4")
+    ↓
+implementations/json/search.py
+    ↓
+json_data_loader.py → load_compiled_messages()
+    ↓
+compiled_messages.json (or channel directories)
+    ↓
+In-memory text search
+    ↓
+Formatted response → GPT-4o
+```
+
+**Data Loading Strategy:**
+1. **Primary**: Uses `compiled_messages.json` if available (fast, single file)
+2. **Fallback**: Loads from per-channel directories (`channel_name/YYYY-MM-DD.json`)
+
+**Available Tools (JSON Mode):**
+- `list_channels` - Reads from `channels.json`
+- `get_channel_history` - Reads from `channel_name/*.json` files
+- `get_channel_members` - Extracts from channel messages
+- `get_thread_replies` - Extracts from message threads
+- `get_user_info` - Reads from `users.json`
+- `list_users` - Reads from `users.json`
+- `search_messages` - Searches compiled messages or all channel files
+- `get_team_info` - Extracts from workspace metadata
+
+**Advantages:**
+- ✅ No API rate limits
+- ✅ Works offline (no Slack connection needed)
+- ✅ `search_messages` always works (no token restrictions)
+- ✅ Faster for large searches (in-memory)
+- ✅ Can work with historical data
+
+**Configuration:**
+Set paths in `workspace_config.yaml` or environment variables:
+```yaml
+workspaces:
+  default:
+    export_path: "/path/to/slack/export"
+    compiled_messages_path: "/path/to/compiled_messages.json"
+```
+
+### Router Mechanism
+
+The `ReadOnlyRouter` class (`read_only_router.py`) handles:
+
+1. **Tool Validation**: Checks if tool exists and is in allowlist
+2. **Parameter Validation**: Validates tool parameters against schemas
+3. **Idempotency**: Prevents duplicate tool calls (5-minute TTL)
+4. **Implementation Selection**: Dynamically loads API or JSON implementation
+5. **Error Handling**: Formats errors consistently
+6. **Response Truncation**: Limits response size to prevent token overflow
+7. **Logging**: Logs all tool calls for debugging
+
+**Implementation Selection Logic:**
+```python
+# In tool_definitions.py
+def _get_implementation_path():
+    data_source = get_data_source_type()  # Reads SLACK_DATA_SOURCE env var
+    
+    if data_source == "json":
+        return {
+            "search_messages": ("implementations.json.search", "search_messages"),
+            # ... other JSON implementations
+        }
+    else:
+        return {
+            "search_messages": ("implementations.search", "search_messages"),
+            # ... other API implementations
+        }
+```
+
+### Tool Execution Flow
+
+```
+1. User: "Can you find messages about SN4?"
+   ↓
+2. GPT-4o: Decides to call search_messages("SN4")
+   ↓
+3. Router: Validates tool, checks idempotency
+   ↓
+4. Router: Gets implementation path based on SLACK_DATA_SOURCE
+   ↓
+5. Implementation: Executes (API call or JSON search)
+   ↓
+6. Router: Formats response, applies truncation
+   ↓
+7. GPT-4o: Receives tool result, generates natural language response
+   ↓
+8. User: Receives formatted answer
+```
+
+### Running in Different Modes
+
+**API Mode:**
+```bash
+# Set in .env or environment
+export SLACK_DATA_SOURCE=api
+python test_connection.py
+```
+
+**JSON Mode:**
+```bash
+# Set in .env or use dedicated script
+export SLACK_DATA_SOURCE=json
+python run_json_app.py
+```
+
+**JSON Mode with Workspace Config:**
+```bash
+python run_json_app.py --workspace default
+python run_json_app.py --list-workspaces  # See available workspaces
+```
+
+### Tool Definitions
+
+All tools are defined in `src/slack_io/tools/tool_definitions.py` using OpenAI's function calling schema format. Each tool has:
+- `name`: Tool identifier
+- `description`: Natural language description for GPT-4o
+- `parameters`: JSON schema defining inputs
+
+The same tool definitions work for both API and JSON modes - only the implementation changes.
+
 ## Documentation
 
 - `AUTONOMOUS_APPROACH.md` - How the autonomous loop works
 - `MESSAGE_IMPROVEMENTS_SUMMARY.md` - Natural language enhancements
 - `SPEED_OPTIMIZATIONS.md` - Performance tuning guide
 - `BOT_CAPABILITIES.md` - Slack API capabilities
+- `READ_ONLY_TOOLS_INTEGRATION.md` - Read-only tools integration details
 
 ## Requirements
 
