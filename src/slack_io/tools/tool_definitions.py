@@ -240,16 +240,70 @@ TOOL_TO_ENDPOINT: Dict[str, str] = {
 
 # Map tool names to implementation functions
 # This will be used by the router to call the correct function
-TOOL_IMPLEMENTATIONS = {
-    "list_channels": ("implementations.conversations", "list_channels"),
-    "get_channel_history": ("implementations.conversations", "get_channel_history"),
-    "get_channel_members": ("implementations.conversations", "get_channel_members"),
-    "get_thread_replies": ("implementations.conversations", "get_thread_replies"),
-    "get_user_info": ("implementations.users", "get_user_info"),
-    "list_users": ("implementations.users", "list_users"),
-    "search_messages": ("implementations.search", "search_messages"),
-    "get_team_info": ("implementations.files", "get_team_info")
-}
+def _get_implementation_path():
+    """Get implementation path based on config."""
+    from .config import get_data_source_type
+    data_source = get_data_source_type()
+    
+    if data_source == "json":
+        # Use JSON implementations
+        return {
+            "list_channels": ("implementations.json.conversations", "list_channels"),
+            "get_channel_history": ("implementations.json.conversations", "get_channel_history"),
+            "get_channel_members": ("implementations.json.conversations", "get_channel_members"),
+            "get_thread_replies": ("implementations.json.conversations", "get_thread_replies"),
+            "get_user_info": ("implementations.json.users", "get_user_info"),
+            "list_users": ("implementations.json.users", "list_users"),
+            "search_messages": ("implementations.json.search", "search_messages"),
+            "get_team_info": ("implementations.json.files", "get_team_info")
+        }
+    else:
+        # Use API implementations (default)
+        return {
+            "list_channels": ("implementations.conversations", "list_channels"),
+            "get_channel_history": ("implementations.conversations", "get_channel_history"),
+            "get_channel_members": ("implementations.conversations", "get_channel_members"),
+            "get_thread_replies": ("implementations.conversations", "get_thread_replies"),
+            "get_user_info": ("implementations.users", "get_user_info"),
+            "list_users": ("implementations.users", "list_users"),
+            "search_messages": ("implementations.search", "search_messages"),
+            "get_team_info": ("implementations.files", "get_team_info")
+        }
+
+# Cache the implementations dict
+_TOOL_IMPLEMENTATIONS_CACHE = None
+
+def _get_tool_implementations():
+    """Get cached tool implementations, refreshing if needed."""
+    global _TOOL_IMPLEMENTATIONS_CACHE
+    # For now, always refresh to pick up config changes
+    # Could optimize to cache and invalidate on config change
+    _TOOL_IMPLEMENTATIONS_CACHE = _get_implementation_path()
+    return _TOOL_IMPLEMENTATIONS_CACHE
+
+# Expose as dict-like access for backwards compatibility
+# This is a callable that returns the dict
+class _ToolImplementationsDict:
+    """Dict-like wrapper for tool implementations."""
+    def get(self, key, default=None):
+        return _get_tool_implementations().get(key, default)
+    
+    def __getitem__(self, key):
+        return _get_tool_implementations()[key]
+    
+    def __contains__(self, key):
+        return key in _get_tool_implementations()
+    
+    def keys(self):
+        return _get_tool_implementations().keys()
+    
+    def values(self):
+        return _get_tool_implementations().values()
+    
+    def items(self):
+        return _get_tool_implementations().items()
+
+TOOL_IMPLEMENTATIONS = _ToolImplementationsDict()
 
 
 def get_tool_definition(tool_name: str) -> Dict[str, Any]:
@@ -267,7 +321,8 @@ def get_endpoint(tool_name: str) -> str:
 
 def get_implementation(tool_name: str):
     """Get implementation module and function name for a tool."""
-    return TOOL_IMPLEMENTATIONS.get(tool_name, (None, None))
+    implementations = _get_tool_implementations()
+    return implementations.get(tool_name, (None, None))
 
 
 def is_valid_tool(tool_name: str) -> bool:

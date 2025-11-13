@@ -12,13 +12,36 @@ from .tools import (
     TOOL_DEFINITIONS,
     get_planning_prompt
 )
-from .slack_client import app as bolt_app
+# Import slack_client lazily to avoid circular dependencies
+# Will be imported only if needed for auth_test()
+bolt_app = None
+
+def _get_bolt_app():
+    """Lazy import of bolt_app to avoid circular dependencies."""
+    global bolt_app
+    if bolt_app is None:
+        try:
+            from .slack_client import get_app
+            bolt_app = get_app()
+        except (ImportError, Exception):
+            pass
+    return bolt_app
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Lazy initialization of OpenAI client to avoid errors if .env not loaded yet
+_client = None
 MODEL = os.getenv("MODEL_NAME", "gpt-4o")  # Use gpt-4o for function calling
+
+def get_openai_client():
+    """Get or create OpenAI client (lazy initialization)."""
+    global _client
+    if _client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not set in environment variables")
+        _client = OpenAI(api_key=api_key)
+    return _client
 
 # Get router instance
 router = get_router()
@@ -43,10 +66,11 @@ When answering questions:
 - For search results, summarize key findings and verify they're relevant to the query
 - When search results are returned, check if they actually match what the user asked for
 - If search results don't seem relevant, mention this to the user and suggest refining the query
-- **IMPORTANT**: If search_messages fails with "not_allowed_token_type" or "missing_scope", this means 
-  the search API requires a user token. In this case, offer to search specific channels instead using 
-  get_channel_history. For example: "I can't use the global search, but I can search specific channels 
-  for you. Which channels should I check?"
+- **IMPORTANT**: If search_messages fails with "not_allowed_token_type" or "missing_scope" (these errors 
+  only occur with API mode, not JSON mode), this means the search API requires a user token. In this case, 
+  offer to search specific channels instead using get_channel_history. For example: "I can't use the global 
+  search, but I can search specific channels for you. Which channels should I check?" 
+  NOTE: In JSON mode, search_messages should always work - if it fails, report the actual error message.
 - **CRITICAL - Message Filtering**: When using get_channel_history to search for specific topics, you MUST 
   filter the messages to only include those that are actually relevant to the user's query. Do NOT return 
   all messages from a channel - only return messages that contain keywords or phrases related to what the 
@@ -164,7 +188,7 @@ def handle_user_query(
             iteration += 1
             
             # Call GPT-4o
-            response = client.chat.completions.create(
+            response = get_openai_client().chat.completions.create(
                 model=MODEL,
                 messages=messages,
                 tools=TOOL_DEFINITIONS,
@@ -316,11 +340,13 @@ def handle_mention(event: Dict[str, Any], say) -> None:
     
     # Remove bot mention from text
     try:
-        auth_result = bolt_app.client.auth_test()
-        if auth_result and isinstance(auth_result, dict):
-            bot_user_id = auth_result.get("user_id")
-            if bot_user_id:
-                text = text.replace(f"<@{bot_user_id}>", "").strip()
+        app = _get_bolt_app()
+        if app:
+            auth_result = app.get_openai_client().auth_test()
+            if auth_result and isinstance(auth_result, dict):
+                bot_user_id = auth_result.get("user_id")
+                if bot_user_id:
+                    text = text.replace(f"<@{bot_user_id}>", "").strip()
         # Also remove any other mentions that might be in the text
         import re
         text = re.sub(r'<@[A-Z0-9]+>', '', text).strip()

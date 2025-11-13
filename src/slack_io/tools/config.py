@@ -2,11 +2,42 @@
 Configuration for read-only Slack API tools.
 """
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from .workspace_config import get_workspace_paths
 
 ALLOWLIST_PATH = os.path.join(
     os.path.dirname(__file__), '..', '..', '..', 'read_only_methods.json'
 )
+
+def _get_json_export_path() -> str:
+    """Get JSON export path from workspace config or environment variable."""
+    # Try workspace config first
+    workspace_paths = get_workspace_paths()
+    if workspace_paths.get("export_path"):
+        return workspace_paths["export_path"]
+    
+    # Fallback to environment variable
+    return os.getenv(
+        "SLACK_JSON_EXPORT_PATH",
+        "/Users/jay./Downloads/Formula Electric at Berkeley Slack export Sep 1 2025 - Nov 9 2025"
+    )
+
+def _get_compiled_messages_path() -> str:
+    """Get compiled messages path from workspace config or environment variable."""
+    # Try workspace config first
+    workspace_paths = get_workspace_paths()
+    if workspace_paths.get("compiled_messages_path"):
+        return workspace_paths["compiled_messages_path"]
+    
+    # Fallback to environment variable
+    return os.getenv(
+        "SLACK_COMPILED_MESSAGES_PATH",
+        "/Users/jay./Desktop/Algoverse/SlackBench/slackbench_real_sim/compiled_messages.json"
+    )
+
+def get_data_source_type() -> str:
+    """Get data source type dynamically from environment variable."""
+    return os.getenv("SLACK_DATA_SOURCE", "api")
 
 TOOL_CONFIG: Dict[str, Any] = {
     "idempotency": {  # Fixed typo: was "idemptotency"
@@ -37,6 +68,24 @@ TOOL_CONFIG: Dict[str, Any] = {
         "max_pages": 10,
         "default_limit": 50,
         "max_limit": 200,
+    },
+    "data_source": {
+        # Note: "type" is read dynamically via get_data_source_type() function
+        "json": {
+            "export_path": _get_json_export_path(),
+            "compiled_messages_path": _get_compiled_messages_path(),
+            "cache_size": 1000,
+        },
+        "api": {
+            "rate_limiting": {
+                "cooldown": 1.1,
+                "retry_after_429": True,
+            },
+            "retry_config": {
+                "max_retries": 3,
+                "backoff_factor": 1.0,
+            }
+        }
     }
 }
 

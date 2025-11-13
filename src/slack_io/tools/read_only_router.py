@@ -154,10 +154,10 @@ class ReadOnlyRouter:
                 )
             
             # Import and call implementation using relative import
-            # module_name is like "implementations.conversations"
+            # module_name is like "implementations.conversations" or "implementations.json.conversations"
             # Handle both 'src.slack_io.tools' and 'slack_io.tools' package structures
             parts = module_name.split('.')
-            if len(parts) == 2:
+            if len(parts) == 2 or len(parts) == 3:
                 # Get the current package (could be 'src.slack_io.tools' or 'slack_io.tools')
                 current_package = __package__
                 if not current_package:
@@ -169,8 +169,13 @@ class ReadOnlyRouter:
                     else:
                         current_package = 'slack_io.tools'
                 
-                # Build relative import path: .implementations.conversations
-                relative_path = f'.{parts[0]}.{parts[1]}'
+                # Build relative import path
+                if len(parts) == 2:
+                    # .implementations.conversations
+                    relative_path = f'.{parts[0]}.{parts[1]}'
+                else:
+                    # .implementations.json.conversations
+                    relative_path = f'.{parts[0]}.{parts[1]}.{parts[2]}'
                 
                 # Import using importlib with relative path
                 # This works whether package is 'src.slack_io.tools' or 'slack_io.tools'
@@ -185,7 +190,7 @@ class ReadOnlyRouter:
                         f"Ensure the implementations module exists and is accessible."
                     ) from e
             else:
-                raise ValueError(f"Invalid module name format: {module_name}")
+                raise ValueError(f"Invalid module name format: {module_name} (expected 2 or 3 parts, got {len(parts)})")
             
             # Handle channel name resolution if needed
             if "channel" in sanitized_params:

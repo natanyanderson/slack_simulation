@@ -8,7 +8,8 @@ from .seed_scheduler import start_seeders
 from .autonomous_loop import start_autonomous_loop, add_real_message_to_history
 from .artifact_server import start_server as start_artifact_server
 from .artifacts import load_artifacts
-from .read_only_assistant import handle_dm, handle_mention, handle_slash_command, handle_user_query
+from .read_only_assistant import handle_user_query
+from .event_handlers import register_event_handlers
 
 # Load environment variables from .env file
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
@@ -53,85 +54,8 @@ def build_maps(event, logger):
     except Exception as e:
         logger.error(f"Failed to load channels: {e}")
 
-# Read-only assistant handlers (must come before general message handler)
-
-@app.event("message")
-def handle_message_events(body, event, logger, say):
-    """
-    Handle all messages. Check for DMs first, then pass to conductor.
-    """
-    ch = event.get("channel")
-    ts = event.get("ts")
-    subtype = event.get("subtype")
-    username = event.get("username", "unknown")
-    text_preview = event.get("text", "")[:50]
-    channel_type = event.get("channel_type")
-    
-    logger.info(f"[BOLT] Received message - Channel: {ch}, TS: {ts}, Subtype: {subtype}, User: {username}, Channel Type: {channel_type}, Text: {text_preview}...")
-    
-    # Check if this is a DM (channel IDs starting with 'D' are DMs)
-    # Also check channel_type for 'im'
-    is_dm = (channel_type == "im") or (ch and ch.startswith("D"))
-    if is_dm and not subtype:
-        # This is a direct message to the bot
-        logger.info(f"[BOLT] Detected DM (channel={ch}), routing to read-only assistant")
-        try:
-            handle_dm(event, say)
-        except Exception as e:
-            logger.error(f"[BOLT] Error handling DM: {e}", exc_info=True)
-        return  # Don't pass to conductor
-    
-    # Check if bot is mentioned in the message
-    text = event.get("text", "")
-    if BOT_USER_ID and f"<@{BOT_USER_ID}>" in text and not subtype:
-        logger.info(f"[BOLT] Detected @mention, routing to read-only assistant")
-        try:
-            handle_mention(event, say)
-        except Exception as e:
-            logger.error(f"[BOLT] Error handling mention: {e}", exc_info=True)
-        return  # Don't pass to conductor for mentions
-    
-    # DISABLED: Conductor disabled for testing read-only assistant
-    # For all other messages, let the conductor decide if anyone replies
-    # Don't early-return on bot_message; the conductor will guard loops.
-    
-    # Add to autonomous history if it's a real message
-    # add_real_message_to_history(event)
-    
-    # Pass full event to conductor
-    # try:
-    #     maybe_handle_event(event)
-    # except Exception as e:
-    #     logger.error(f"[BOLT] Error in conductor: {e}", exc_info=True)
-    
-    # Skip conductor - only read-only assistant is active
-    logger.debug(f"[BOLT] Skipping conductor - read-only assistant only mode")
-
-
-@app.event("app_mention")
-def handle_app_mention(event, say, logger):
-    """
-    Handle @mentions of the bot (alternative handler).
-    This is more reliable than parsing mentions in message handler.
-    """
-    logger.info(f"[BOLT] Received app_mention event")
-    try:
-        handle_mention(event, say)
-    except Exception as e:
-        logger.error(f"[BOLT] Error handling app_mention: {e}", exc_info=True)
-
-
-@app.command("/slackbench")
-def handle_slackbench_command(ack, command, respond, logger):
-    """
-    Handle /slackbench slash command.
-    """
-    logger.info(f"[BOLT] Received /slackbench command from {command.get('user_id')}")
-    try:
-        handle_slash_command(ack, command, respond)
-    except Exception as e:
-        logger.error(f"[BOLT] Error handling slash command: {e}", exc_info=True)
-        respond(text=f"Error: {str(e)}", response_type="ephemeral")
+# Register read-only assistant event handlers
+register_event_handlers(app, BOT_USER_ID)
 
 # Also listen for bot messages explicitly
 # DISABLED: Bot message handler disabled for testing read-only assistant
@@ -179,8 +103,22 @@ def run_socket_mode():
     logging.info(f"App token: {app_token[:10]}...")
     logging.info(f"Bot token: {bot_token[:10]}...")
     
+    # Log data source configuration
+    from .tools.config import TOOL_CONFIG, get_data_source_type
+    data_source = get_data_source_type()
+    logging.info(f"[startup] Data source mode: {data_source}")
+    if data_source == "json":
+        export_path = TOOL_CONFIG.get("data_source", {}).get("json", {}).get("export_path", "")
+        compiled_path = TOOL_CONFIG.get("data_source", {}).get("json", {}).get("compiled_messages_path", "")
+        logging.info(f"[startup] JSON export path: {export_path}")
+        logging.info(f"[startup] Compiled messages path: {compiled_path}")
+    else:
+        logging.info(f"[startup] Using Slack API (not JSON export)")
+    
     # Load channel maps at startup
     load_channel_maps(app, logging.getLogger(__name__))
+    
+    # Note: Event handlers are already registered at module level (line 58)
 
     # Load artifacts from disk
     load_artifacts()
