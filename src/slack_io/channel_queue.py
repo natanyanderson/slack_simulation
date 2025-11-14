@@ -30,3 +30,4 @@ class ChannelQueue:
 
     def enqueue(self, fn, **kwargs):
         self.q.put((fn, kwargs))
+

@@ -6,7 +6,7 @@ from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME, CHAN
 from .user_registry import load_user_personas
 from .slack_user_post import user_post_message
 from .agent_engine import generate_reply
-from .queue import ChannelQueue
+from .channel_queue import ChannelQueue
 from .progression import load_states, get_or_create_state, advance_phase, PHASE_ORDER
 
 logger = logging.getLogger(__name__)

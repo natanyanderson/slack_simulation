@@ -67,31 +67,70 @@ def truncate_response(
     if not items:
         return response
     
-    # Step 1: Apply hard item limit
+    # Store original items for safety checks
+    original_items = items.copy()
     original_count = len(items)
+    
+    # Step 1: Apply hard item limit
     if len(items) > max_items:
         items = truncate_items(items, max_items, strategy)
         response["items"] = items
         response["truncated"] = True
     
+    # Safety check: never truncate to 0 if we started with items
+    if original_count > 0 and len(items) == 0:
+        # Keep at least the first item from original
+        items = [original_items[0]]
+        response["items"] = items
+    else:
+        # Update response with current items
+        response["items"] = items
+    
     # Step 2: Check token limit
+    # Get current items from response (may have been modified in Step 1)
+    items = response.get("items", [])
     estimated_tokens = estimate_response_tokens(response)
     if estimated_tokens > max_tokens:
         # Need to truncate further
-        # Rough calculation: how many items can we keep?
-        items_per_token = len(items) / estimated_tokens if estimated_tokens > 0 else 1
-        target_items = int(max_tokens * items_per_token * 0.9)  # 90% to be safe
+        # Calculate tokens per item (approximate)
+        if len(items) > 0:
+            # Estimate tokens for a single item by sampling
+            sample_item = items[0] if items else {}
+            sample_tokens = estimate_tokens(json.dumps(sample_item))
+            if sample_tokens > 0:
+                # Calculate how many items we can fit
+                # Reserve some tokens for response structure (metadata, etc.)
+                structure_tokens = estimated_tokens - (sample_tokens * len(items))
+                available_tokens = max_tokens - structure_tokens
+                target_items = max(1, int(available_tokens / sample_tokens * 0.9))  # 90% to be safe, at least 1
+            else:
+                # Fallback: keep at least 1 item
+                target_items = max(1, len(items))
+        else:
+            target_items = 0
         
-        if target_items < len(items):
+        if target_items < len(items) and target_items > 0:
             items = truncate_items(items, target_items, strategy)
             response["items"] = items
             response["truncated"] = True
+        elif target_items == 0 and len(items) > 0:
+            # Safety: if calculation says 0 but we have items, keep at least 1
+            items = [items[0]] if items else []
+            response["items"] = items
+            response["truncated"] = True
+    
+    # Final safety check: never end up with 0 items if we started with items
+    if original_count > 0 and len(response.get("items", [])) == 0:
+        response["items"] = [original_items[0]]
+        response["truncated"] = True
     
     # Step 3: Add metadata
+    # Get final items count after all truncation
+    final_items = response.get("items", [])
     response["meta"] = response.get("meta", {})
     response["meta"].update({
         "truncated": response.get("truncated", False),
-        "items_shown": len(items),
+        "items_shown": len(final_items),
         "items_total": original_count,
         "estimated_tokens": estimate_response_tokens(response)
     })

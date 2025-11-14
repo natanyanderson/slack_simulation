@@ -8,6 +8,29 @@ from ...validators import validate_channel_id, validate_limit
 from ...cache import set_channel_id, get_channel_id
 from ...timestamp_formatter import format_messages_timestamps
 from ..json_data_loader import get_loader
+from datetime import datetime
+
+
+def _parse_timestamp(ts: str) -> float:
+    """
+    Parse a timestamp that could be either:
+    - Unix timestamp string (e.g., "1757434763.000000")
+    - Formatted date string (e.g., "2025-09-09 12:19:23")
+    
+    Returns:
+        Unix timestamp as float
+    """
+    try:
+        # Try parsing as Unix timestamp first
+        return float(ts)
+    except ValueError:
+        # Try parsing as formatted date string
+        try:
+            dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            return dt.timestamp()
+        except ValueError:
+            # If both fail, raise an error
+            raise ValueError(f"Could not parse timestamp: {ts}")
 
 
 def list_channels(
@@ -245,26 +268,35 @@ def get_thread_replies(
         all_messages = loader.load_channel_messages(channel_name)
         
         # Find thread replies (messages with thread_ts matching the parent ts)
-        thread_ts = float(ts)
+        # Handle both Unix timestamp and formatted date string
+        thread_ts = _parse_timestamp(ts)
         replies = []
         
         for msg in all_messages:
             msg_thread_ts = msg.get("thread_ts")
-            if msg_thread_ts and float(msg_thread_ts) == thread_ts:
-                # This is a reply in the thread
-                msg_ts = float(msg.get("ts", "0"))
-                
-                # Filter by timestamp if specified
-                if oldest:
-                    oldest_ts = float(oldest)
-                    if msg_ts < oldest_ts:
-                        continue
-                if latest:
-                    latest_ts = float(latest)
-                    if msg_ts > latest_ts:
-                        continue
-                
-                replies.append(msg)
+            if msg_thread_ts:
+                # Handle both Unix timestamp and formatted date string
+                try:
+                    msg_thread_ts_float = _parse_timestamp(str(msg_thread_ts))
+                    # Use a small tolerance for floating point comparison
+                    if abs(msg_thread_ts_float - thread_ts) < 0.0001:
+                        # This is a reply in the thread
+                        msg_ts = float(msg.get("ts", "0"))
+                        
+                        # Filter by timestamp if specified
+                        if oldest:
+                            oldest_ts = float(oldest)
+                            if msg_ts < oldest_ts:
+                                continue
+                        if latest:
+                            latest_ts = float(latest)
+                            if msg_ts > latest_ts:
+                                continue
+                        
+                        replies.append(msg)
+                except (ValueError, TypeError):
+                    # Skip if we can't parse the timestamp
+                    continue
         
         # Sort by timestamp (ascending - oldest first, like Slack API)
         replies.sort(key=lambda m: float(m.get("ts", "0")))

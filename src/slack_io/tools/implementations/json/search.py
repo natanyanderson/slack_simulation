@@ -51,8 +51,12 @@ def _search_messages_in_text(
         
         relevance_score = 0.0
         
-        # Check for exact phrase match
-        if quoted_phrase:
+        # Check for exact phrase match (including 2-word phrases)
+        # First check if the full query appears as a phrase
+        query_phrase = query_lower.strip()
+        if query_phrase in text:
+            relevance_score = 0.9  # High score for exact phrase match
+        elif quoted_phrase:
             phrase = quoted_phrase.strip('"')
             if phrase in text:
                 relevance_score = 0.9
@@ -74,7 +78,10 @@ def _search_messages_in_text(
         if keywords and relevance_score < 0.6:
             keywords_found = sum(1 for keyword in keywords if keyword in text)
             keyword_score = keywords_found / len(keywords) if keywords else 0.0
-            if relevance_score < 0.5:
+            # If all keywords are found, give higher score
+            if keywords_found == len(keywords) and len(keywords) > 0:
+                relevance_score = max(relevance_score, 0.7)  # High score for all keywords
+            elif relevance_score < 0.5:
                 relevance_score = max(relevance_score, keyword_score * 0.6)
         
         # If no keywords and no phrase, check if query itself matches (for short queries like "SN4")
@@ -168,16 +175,17 @@ def search_messages(
                 "data": None
             }
         
-        # Search messages
-        search_results = _search_messages_in_text(all_messages, query, optimized_query)
+        # Search messages (only call once to avoid inconsistencies)
+        all_search_results = _search_messages_in_text(all_messages, query, optimized_query)
+        total = len(all_search_results)
         
         # Sort results
         if sort == "score":
             # Sort by relevance score
-            search_results.sort(key=lambda x: x[1], reverse=(sort_dir == "desc"))
+            all_search_results.sort(key=lambda x: x[1], reverse=(sort_dir == "desc"))
         else:
             # Sort by timestamp
-            search_results.sort(
+            all_search_results.sort(
                 key=lambda x: float(x[0].get("ts", "0")),
                 reverse=(sort_dir == "desc")
             )
@@ -186,9 +194,9 @@ def search_messages(
         if page and page > 1:
             start_idx = (page - 1) * count
             end_idx = start_idx + count
-            search_results = search_results[start_idx:end_idx]
+            search_results = all_search_results[start_idx:end_idx]
         else:
-            search_results = search_results[:count]
+            search_results = all_search_results[:count]
         
         # Format results to match Slack API format
         matches = []
@@ -198,11 +206,6 @@ def search_messages(
             # Add relevance score
             formatted_msg["_relevance_score"] = score
             matches.append(formatted_msg)
-        
-        # Create response structure matching Slack API
-        # For JSON search, total is the actual number of search results found (before pagination)
-        all_search_results = _search_messages_in_text(all_messages, query, optimized_query)
-        total = len(all_search_results) if not page else len(all_search_results)
         
         return {
             "success": True,

@@ -8,7 +8,8 @@ import argparse
 from pathlib import Path
 
 # Add project root to path
-project_root = Path(__file__).parent
+# This script is in src/slack_io/, so go up 2 levels to get project root
+project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 

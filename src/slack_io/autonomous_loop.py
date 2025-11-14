@@ -7,7 +7,7 @@ from typing import List, Dict
 from .slack_client import app as bolt_app
 from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
 from .agent_engine import generate_reply
-from .queue import ChannelQueue
+from .channel_queue import ChannelQueue
 from .user_registry import load_user_personas
 from .slack_user_post import user_post_message
 

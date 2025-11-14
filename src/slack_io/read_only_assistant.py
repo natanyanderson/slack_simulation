@@ -5,6 +5,7 @@ Handles user queries via DM, @mention, or slash commands using GPT-4o with funct
 import os
 import json
 import logging
+import time
 from typing import Dict, Any, Optional, List
 from openai import OpenAI
 from .tools import (
@@ -28,6 +29,13 @@ def _get_bolt_app():
     return bolt_app
 
 logger = logging.getLogger(__name__)
+
+# Conversation history storage
+# Format: {(user_id, channel_id): [message1, message2, ...]}
+_conversation_history: Dict[tuple, List[Dict[str, Any]]] = {}
+_max_history_per_conversation = 10  # Keep last 10 user-assistant exchanges
+_history_ttl = 3600  # 1 hour TTL for conversations
+_last_cleanup = time.time()
 
 # Lazy initialization of OpenAI client to avoid errors if .env not loaded yet
 _client = None
@@ -77,6 +85,14 @@ When answering questions:
   user asked for. If a channel has no relevant messages, say so clearly rather than returning unrelated messages.
 - For message history, provide context and highlights
 - For channel lists, list the channel names and brief details
+
+**CONVERSATION CONTEXT:**
+- You have access to previous messages in this conversation
+- When a user asks a follow-up question, refer back to previous context
+- If a user mentions something from earlier (like "that thread", "the cornering thread", or "what we discussed"), 
+  use the conversation history to understand what they're referring to
+- Maintain context across multiple questions in the same conversation
+- If a user asks about something mentioned earlier, you don't need to ask them to repeat details
 
 Always be helpful and respect user privacy.
 """
@@ -149,6 +165,75 @@ def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None)
     }
 
 
+def _get_conversation_key(user_id: str, channel_id: Optional[str]) -> tuple:
+    """Generate a unique key for conversation history."""
+    return (user_id, channel_id or "dm")
+
+
+def _get_conversation_history(user_id: str, channel_id: Optional[str]) -> List[Dict[str, Any]]:
+    """Get conversation history for a user/channel."""
+    key = _get_conversation_key(user_id, channel_id)
+    return _conversation_history.get(key, [])
+
+
+def _cleanup_old_conversations() -> None:
+    """Remove conversations older than TTL."""
+    global _conversation_history
+    try:
+        current_time = time.time()
+        keys_to_remove = []
+        
+        for key, messages in _conversation_history.items():
+            if messages:
+                last_timestamp = messages[-1].get("timestamp", 0)
+                if current_time - last_timestamp > _history_ttl:
+                    keys_to_remove.append(key)
+        
+        for key in keys_to_remove:
+            del _conversation_history[key]
+        
+        if keys_to_remove:
+            logger.debug(f"Cleaned up {len(keys_to_remove)} old conversations")
+    except Exception as e:
+        logger.warning(f"Error during conversation cleanup: {e}")
+
+
+def _add_to_conversation_history(
+    user_id: str,
+    channel_id: Optional[str],
+    user_message: str,
+    assistant_response: str
+) -> None:
+    """Add a user-assistant exchange to conversation history."""
+    global _last_cleanup
+    key = _get_conversation_key(user_id, channel_id)
+    
+    if key not in _conversation_history:
+        _conversation_history[key] = []
+    
+    # Add user message and assistant response
+    _conversation_history[key].append({
+        "role": "user",
+        "content": user_message,
+        "timestamp": time.time()
+    })
+    _conversation_history[key].append({
+        "role": "assistant",
+        "content": assistant_response,
+        "timestamp": time.time()
+    })
+    
+    # Trim to max history
+    if len(_conversation_history[key]) > _max_history_per_conversation * 2:
+        _conversation_history[key] = _conversation_history[key][-_max_history_per_conversation * 2:]
+    
+    # Clean up old conversations periodically
+    current_time = time.time()
+    if current_time - _last_cleanup > 300:  # Every 5 minutes
+        _cleanup_old_conversations()
+        _last_cleanup = current_time
+
+
 def handle_user_query(
     user_query: str,
     user_id: str,
@@ -175,11 +260,29 @@ def handle_user_query(
         }
     """
     try:
-        # Initialize conversation
+        # Get conversation history (graceful degradation if it fails)
+        try:
+            history = _get_conversation_history(user_id, channel_id)
+        except Exception as e:
+            logger.warning(f"Failed to retrieve conversation history: {e}")
+            history = []
+        
+        # Build messages list with system prompt, history, and current query
         messages = [
-            {"role": "system", "content": ASSISTANT_SYSTEM_PROMPT},
-            {"role": "user", "content": user_query}
+            {"role": "system", "content": ASSISTANT_SYSTEM_PROMPT}
         ]
+        
+        # Add conversation history (only user/assistant messages, not tool calls)
+        for msg in history:
+            # Only include user and assistant messages, skip tool calls
+            if msg.get("role") in ["user", "assistant"]:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        # Add current user query
+        messages.append({"role": "user", "content": user_query})
         
         tool_calls_count = 0
         iteration = 0
@@ -234,6 +337,12 @@ def handle_user_query(
             else:
                 # Model has finished (no more tool calls, has final answer)
                 final_text = message.content or "I'm sorry, I couldn't generate a response."
+                
+                # Save to conversation history
+                try:
+                    _add_to_conversation_history(user_id, channel_id, user_query, final_text)
+                except Exception as e:
+                    logger.warning(f"Failed to save conversation history: {e}")
                 
                 return {
                     "text": final_text,

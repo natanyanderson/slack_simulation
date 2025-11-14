@@ -302,6 +302,46 @@ Formatted response → GPT-4o
 - ✅ Faster for large searches (in-memory)
 - ✅ Can work with historical data
 
+### Message Compiler
+
+The `compile_slackbench_messages.py` script allows you to compile messages from a Slack export into SlackBench's expected format with selective channel compilation.
+
+**Features:**
+- **Selective Channel Compilation**: Compile only specific channels (useful for testing/development)
+- **SlackBench-Compatible Format**: Outputs flat JSON array format expected by SlackBench
+- **Channel Metadata**: Automatically adds channel ID and name to each message
+- **Timestamped Output**: Generates files with timestamps (e.g., `compiled_messages_20251112_143022.json`)
+
+**Usage:**
+
+1. **Configure the script** (`src/slack_io/tools/compile_slackbench_messages.py`):
+   ```python
+   # --- CONFIGURE THIS ---
+   UNZIPPED_EXPORT_PATH = "/path/to/slack/export"
+   CHANNELS_TO_COMPILE = ["general", "testing", "logistics"]
+   OUTPUT_DIR = None  # None = project root
+   ```
+
+2. **Run the compiler**:
+   ```bash
+   python src/slack_io/tools/compile_slackbench_messages.py
+   ```
+
+3. **Update workspace config** to use the new file:
+   ```yaml
+   workspaces:
+     default:
+       compiled_messages_path: "/path/to/compiled_messages_20251112_143022.json"
+   ```
+
+**Compiling All Channels:**
+Set `CHANNELS_TO_COMPILE = []` or `CHANNELS_TO_COMPILE = None` to compile all channels found in the export.
+
+**Output Format:**
+- Flat JSON array: `[{message1}, {message2}, ...]`
+- Each message includes: `{"channel": {"id": "...", "name": "..."}}`
+- Messages sorted chronologically by timestamp
+
 **Configuration:**
 Set paths in `workspace_config.yaml` or environment variables:
 ```yaml
