@@ -22,6 +22,7 @@ ENV/
 
 # Logs
 *.log
+logs/
 data/
 
 # OS

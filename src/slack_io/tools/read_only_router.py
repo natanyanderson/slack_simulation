@@ -153,6 +153,9 @@ class ReadOnlyRouter:
                     tool_name
                 )
             
+            # PRINT: Show which implementation is being used
+            print(f"[ROUTER] Using implementation: {module_name}.{function_name}")
+            
             # Import and call implementation using relative import
             # module_name is like "implementations.conversations" or "implementations.json.conversations"
             # Handle both 'src.slack_io.tools' and 'slack_io.tools' package structures

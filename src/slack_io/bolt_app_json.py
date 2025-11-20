@@ -17,10 +17,16 @@ from .event_handlers import register_event_handlers
 # Load environment variables from .env file (same tokens as API app)
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
+# Configure logging level (default to INFO to reduce noise, use DEBUG for troubleshooting)
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, log_level, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Suppress verbose Slack Bolt framework logs (only show WARNING and above)
+# This reduces noise from HTTP request/response details
+logging.getLogger("slack_bolt").setLevel(logging.WARNING)
 
 # Initialize Slack Bolt App
 app = App(

@@ -13,6 +13,7 @@ from .tools import (
     TOOL_DEFINITIONS,
     get_planning_prompt
 )
+from .tools.tracer import get_tracer
 # Import slack_client lazily to avoid circular dependencies
 # Will be imported only if needed for auth_test()
 bolt_app = None
@@ -53,6 +54,11 @@ def get_openai_client():
 
 # Get router instance
 router = get_router()
+
+# Tracer configuration from environment variables
+TRACER_ENABLE_CONSOLE = os.getenv("TRACER_ENABLE_CONSOLE", "true").lower() == "true"
+TRACER_ENABLE_FILE = os.getenv("TRACER_ENABLE_FILE", "false").lower() == "true"
+TRACER_LOG_FILE = os.getenv("TRACER_LOG_FILE", "function_trace.log")
 
 # System prompt for the assistant
 ASSISTANT_SYSTEM_PROMPT = f"""You are a helpful Slack assistant that can answer questions about the workspace using read-only tools.
@@ -98,7 +104,7 @@ Always be helpful and respect user privacy.
 """
 
 
-def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None) -> Dict[str, Any]:
+def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None, tracer=None) -> Dict[str, Any]:
     """
     Execute a tool call from GPT-4o.
     
@@ -106,6 +112,7 @@ def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None)
         tool_call: Tool call object from GPT-4o (ChatCompletionMessageFunctionToolCall)
         user_id: Slack user ID making the request
         channel_id: Channel ID where the request came from
+        tracer: Optional FunctionCallTracer instance for tracing
     
     Returns:
         Tool execution result formatted for GPT-4o
@@ -134,12 +141,24 @@ def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None)
     
     # Execute tool via router
     logger.info(f"Executing tool: {tool_name} with args: {arguments}")
+    start_time = time.time()
     result = router.execute_tool(
         tool_name=tool_name,
         params=arguments,
         user_id=user_id,
         channel_id=channel_id
     )
+    duration_ms = (time.time() - start_time) * 1000
+    
+    # Log function result to tracer
+    if tracer:
+        tracer.log_function_result(
+            tool_name=tool_name,
+            success=result.get("success", False),
+            result_data=result if result.get("success") else None,
+            error=result.get("error") if not result.get("success") else None,
+            duration_ms=duration_ms
+        )
     
     # Format result for GPT-4o
     # Ensure the result is properly formatted
@@ -260,6 +279,24 @@ def handle_user_query(
         }
     """
     try:
+        # Initialize tracer for this session (create new instance per session)
+        from .tools.tracer import FunctionCallTracer
+        tracer = FunctionCallTracer(
+            enable_console=TRACER_ENABLE_CONSOLE,
+            enable_file=TRACER_ENABLE_FILE,
+            log_file=TRACER_LOG_FILE
+        )
+        session_start_time = time.time()
+        
+        # Log tracer status for debugging
+        if TRACER_ENABLE_CONSOLE:
+            logger.info(f"[TRACER] Function call tracing enabled (console output)")
+        else:
+            logger.info(f"[TRACER] Function call tracing disabled (console output)")
+        
+        # Start tracing session
+        tracer.start_session(user_query, user_id, channel_id)
+        
         # Get conversation history (graceful degradation if it fails)
         try:
             history = _get_conversation_history(user_id, channel_id)
@@ -290,6 +327,9 @@ def handle_user_query(
         while iteration < max_iterations:
             iteration += 1
             
+            # Log iteration start
+            tracer.log_iteration_start(iteration, max_iterations)
+            
             # Call GPT-4o
             response = get_openai_client().chat.completions.create(
                 model=MODEL,
@@ -299,6 +339,12 @@ def handle_user_query(
             )
             
             message = response.choices[0].message
+            
+            # Log model response
+            tracer.log_model_response(
+                content=message.content,
+                tool_calls=message.tool_calls
+            )
             
             # Convert message object to dict format for messages list
             # This ensures compatibility with the API on subsequent calls
@@ -327,9 +373,18 @@ def handle_user_query(
             if message.tool_calls:
                 tool_calls_count += len(message.tool_calls)
                 
-                # Execute all tool calls
-                for tool_call in message.tool_calls:
-                    tool_result = execute_tool_call(tool_call, user_id, channel_id)
+                # Execute all tool calls (tracer will log them via execute_tool_call)
+                for idx, tool_call in enumerate(message.tool_calls):
+                    # Log function call before execution
+                    tracer.log_function_call(
+                        tool_name=tool_call.function.name,
+                        arguments=tool_call.function.arguments,
+                        tool_call_id=tool_call.id,
+                        call_index=idx + 1,
+                        total_calls=len(message.tool_calls)
+                    )
+                    
+                    tool_result = execute_tool_call(tool_call, user_id, channel_id, tracer=tracer)
                     messages.append(tool_result)
                 
                 # Continue loop to get model's response to tool results
@@ -337,6 +392,10 @@ def handle_user_query(
             else:
                 # Model has finished (no more tool calls, has final answer)
                 final_text = message.content or "I'm sorry, I couldn't generate a response."
+                
+                # Log final answer
+                total_duration = time.time() - session_start_time
+                tracer.log_final_answer(final_text, tool_calls_count, total_duration)
                 
                 # Save to conversation history
                 try:
@@ -352,8 +411,12 @@ def handle_user_query(
                 }
         
         # Max iterations reached
+        error_text = "I'm sorry, I reached the maximum number of tool calls. Please try rephrasing your question."
+        if tracer:
+            total_duration = time.time() - session_start_time
+            tracer.log_final_answer(error_text, tool_calls_count, total_duration)
         return {
-            "text": "I'm sorry, I reached the maximum number of tool calls. Please try rephrasing your question.",
+            "text": error_text,
             "tool_calls": tool_calls_count,
             "success": False,
             "error": "max_iterations_reached"
@@ -361,8 +424,15 @@ def handle_user_query(
     
     except Exception as e:
         logger.error(f"Error handling user query: {e}", exc_info=True)
+        error_text = f"I encountered an error: {str(e)}. Please try again."
+        # Try to log error if tracer exists
+        try:
+            if 'tracer' in locals() and tracer:
+                tracer.log_final_answer(error_text, 0, None)
+        except:
+            pass
         return {
-            "text": f"I encountered an error: {str(e)}. Please try again.",
+            "text": error_text,
             "tool_calls": 0,
             "success": False,
             "error": str(e)

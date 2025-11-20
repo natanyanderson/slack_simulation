@@ -25,7 +25,7 @@ slackbench_real_sim/
 │   ├── queue.py             # Rate-limited message queue
 │   └── slack_client.py      # Slack API client
 ├── test_connection.py       # Test/startup script
-└── run_app.sh              # Startup script
+└── run_app.sh              # Startup scriptc;=cl
 
 ```
 
