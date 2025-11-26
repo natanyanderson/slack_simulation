@@ -1,9 +1,9 @@
 # import_history.py
 import json
 import time
-from src.slack_io.user_registry import load_user_personas
-from src.slack_io.persona_registry import CHANNEL_NAME_TO_ID, PERSONAS
-from src.slack_io.slack_user_post import user_post_message
+from src.slack_io.autonomous.user_registry import load_user_personas
+from src.slack_io.autonomous.persona_registry import CHANNEL_NAME_TO_ID, PERSONAS
+from src.slack_io.autonomous.slack_user_post import user_post_message
 
 # --- Configuration ---
 EXPORT_FILE_TO_LOAD = "slack_export.json"

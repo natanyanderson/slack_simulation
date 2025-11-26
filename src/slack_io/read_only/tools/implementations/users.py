@@ -3,7 +3,7 @@ Users API implementations.
 """
 from typing import Dict, Any, Optional
 from slack_sdk.errors import SlackApiError
-from ...slack_client import app as bolt_app
+from ....shared.slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
 from ..validators import validate_user_id, validate_limit
 from ..cache import set_user_info, get_user_info

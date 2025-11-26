@@ -4,7 +4,7 @@ This creates a hybrid: autonomous conversation generation + real Slack interacti
 """
 import time, random, logging, threading
 from typing import List, Dict
-from .slack_client import app as bolt_app
+from ..shared.slack_client import app as bolt_app
 from .persona_registry import PERSONAS, CHANNEL_POLICY, CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
 from .agent_engine import generate_reply
 from .channel_queue import ChannelQueue

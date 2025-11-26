@@ -1,9 +1,9 @@
 import threading, time, random
 from typing import Optional
-from .slack_client import app as bolt_app
+from ..shared.slack_client import app as bolt_app
 from .persona_registry import PERSONAS, CHANNEL_NAME_TO_ID
 from .conductor import mark_persona_cooldown, schedule_followups_for_thread
-from .agent_engine import client as llm_client, MODEL
+from .agent_engine import call_agent_model, MAX_AGENT_TOKENS
 from .user_registry import load_user_personas
 from .slack_user_post import user_post_message
 
@@ -42,15 +42,7 @@ def _llm_root(persona: str, channel_name: str, prompt_goal: str, digest: str) ->
     user = (f"Goal: {prompt_goal}\n\n"
             f"Recent context (optional):\n{digest}\n\n"
             f"Rules:\n- Start a new thread (no replies).\n- No citations or IDs.\n")
-    resp = llm_client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role":"system","content":sys},{"role":"user","content":user}],
-        temperature=0.9,  # Higher temperature for creative, varied responses
-        presence_penalty=0.6,  # Penalize repetitive topics/concepts
-        frequency_penalty=0.3,  # Penalize word/token repetition
-        max_tokens=120,
-    )
-    return resp.choices[0].message.content.strip()
+    return call_agent_model(sys, user, max_tokens=min(120, MAX_AGENT_TOKENS))
 
 def standup_loop(minutes: int = 60):
     def run():

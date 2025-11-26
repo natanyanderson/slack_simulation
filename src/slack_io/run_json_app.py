@@ -13,8 +13,8 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from src.slack_io.bolt_app_json import run_socket_mode
-from src.slack_io.tools.workspace_config import list_workspaces
+from src.slack_io.read_only.app import run_socket_mode
+from src.slack_io.read_only.tools.workspace_config import list_workspaces
 
 
 def main():

@@ -6,9 +6,8 @@ from .conductor import maybe_handle_event
 from .persona_registry import CHANNEL_ID_TO_NAME, CHANNEL_NAME_TO_ID
 from .seed_scheduler import start_seeders
 from .autonomous_loop import start_autonomous_loop, add_real_message_to_history
-from .artifact_server import start_server as start_artifact_server
-from .artifacts import load_artifacts
-from .read_only_assistant import handle_user_query
+from ..legacy.artifact_server import start_server as start_artifact_server
+from ..legacy.artifacts import load_artifacts
 from .event_handlers import register_event_handlers
 
 # Load environment variables from .env file
@@ -109,17 +108,8 @@ def run_socket_mode():
     logging.info(f"App token: {app_token[:10]}...")
     logging.info(f"Bot token: {bot_token[:10]}...")
     
-    # Log data source configuration
-    from .tools.config import TOOL_CONFIG, get_data_source_type
-    data_source = get_data_source_type()
-    logging.info(f"[startup] Data source mode: {data_source}")
-    if data_source == "json":
-        export_path = TOOL_CONFIG.get("data_source", {}).get("json", {}).get("export_path", "")
-        compiled_path = TOOL_CONFIG.get("data_source", {}).get("json", {}).get("compiled_messages_path", "")
-        logging.info(f"[startup] JSON export path: {export_path}")
-        logging.info(f"[startup] Compiled messages path: {compiled_path}")
-    else:
-        logging.info(f"[startup] Using Slack API (not JSON export)")
+    # Autonomous agents use live Slack API
+    logging.info(f"[startup] Using Slack API for autonomous agents")
     
     # Load channel maps at startup
     load_channel_maps(app, logging.getLogger(__name__))

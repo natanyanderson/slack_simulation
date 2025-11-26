@@ -6,8 +6,13 @@ import os
 import json
 import logging
 import time
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from openai import OpenAI
+
+try:
+    from anthropic import Anthropic
+except ImportError:
+    Anthropic = None
 from .tools import (
     get_router,
     TOOL_DEFINITIONS,
@@ -23,7 +28,7 @@ def _get_bolt_app():
     global bolt_app
     if bolt_app is None:
         try:
-            from .slack_client import get_app
+            from ..shared.slack_client import get_app
             bolt_app = get_app()
         except (ImportError, Exception):
             pass
@@ -38,22 +43,296 @@ _max_history_per_conversation = 10  # Keep last 10 user-assistant exchanges
 _history_ttl = 3600  # 1 hour TTL for conversations
 _last_cleanup = time.time()
 
-# Lazy initialization of OpenAI client to avoid errors if .env not loaded yet
-_client = None
-MODEL = os.getenv("MODEL_NAME", "gpt-4o")  # Use gpt-4o for function calling
+# Provider configuration - read dynamically to allow .env.openai to override
+def get_llm_provider() -> str:
+    """Get LLM provider dynamically from environment variable."""
+    return os.getenv("LLM_PROVIDER", "openai").lower()
+
+def get_openai_model() -> str:
+    """Get OpenAI model name dynamically."""
+    return os.getenv("MODEL_NAME", "gpt-4o")
+
+def get_claude_model() -> str:
+    """Get Claude model name dynamically."""
+    return os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
+
+def get_claude_max_output_tokens() -> int:
+    """Get Claude max output tokens dynamically."""
+    try:
+        return int(os.getenv("CLAUDE_MAX_OUTPUT_TOKENS", "800"))
+    except ValueError:
+        return 800
+
+def get_openai_max_output_tokens() -> int:
+    """Get OpenAI max output tokens dynamically."""
+    try:
+        return int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "4096"))
+    except ValueError:
+        return 4096
+
+def get_claude_temperature() -> float:
+    """Get Claude temperature dynamically."""
+    try:
+        return float(os.getenv("CLAUDE_TEMPERATURE", "0.2"))
+    except ValueError:
+        return 0.2
+
+def get_model_name() -> str:
+    """Get the active model name based on provider."""
+    provider = get_llm_provider()
+    if provider == "claude":
+        return get_claude_model()
+    return get_openai_model()
+
+# LLM_PROVIDER and related variables are now read dynamically via functions above
+# This ensures .env.openai settings are picked up even if loaded after module import
+
+# Lazy initialization of clients to avoid errors if .env not loaded yet
+_openai_client = None
+_anthropic_client = None
 
 def get_openai_client():
     """Get or create OpenAI client (lazy initialization)."""
-    global _client
-    if _client is None:
+    global _openai_client
+    if _openai_client is None:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY not set in environment variables")
-        _client = OpenAI(api_key=api_key)
-    return _client
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
+
+
+def get_anthropic_client():
+    """Get or create Anthropic client (lazy initialization)."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        if Anthropic is None:
+            raise ImportError("anthropic package is not installed. Please `pip install anthropic`.")
+        api_key = os.getenv("CLAUDE_API_KEY")
+        if not api_key:
+            raise ValueError("CLAUDE_API_KEY not set in environment variables")
+        _anthropic_client = Anthropic(api_key=api_key)
+    return _anthropic_client
 
 # Get router instance
 router = get_router()
+
+
+def _get_tool_definitions_for_provider() -> List[Dict[str, Any]]:
+    """Return tool definitions formatted for the active provider."""
+    if get_llm_provider() == "claude":
+        claude_tools = []
+        for tool in TOOL_DEFINITIONS:
+            fn = tool.get("function", {})
+            claude_tools.append({
+                "name": fn.get("name"),
+                "description": fn.get("description"),
+                "input_schema": fn.get("parameters", {"type": "object"})
+            })
+        return claude_tools
+    return TOOL_DEFINITIONS
+
+
+def _ensure_arguments_string(arguments: Any) -> str:
+    """Ensure tool arguments are serialized as a JSON string."""
+    if isinstance(arguments, str):
+        return arguments
+    try:
+        return json.dumps(arguments)
+    except (TypeError, ValueError):
+        return json.dumps({"raw": str(arguments)})
+
+
+def _normalize_tool_call(tool_call_id: Optional[str], name: Optional[str], arguments: Any) -> Dict[str, Any]:
+    """Normalize provider-specific tool calls to a common dict structure."""
+    return {
+        "id": tool_call_id,
+        "type": "function",
+        "function": {
+            "name": name,
+            "arguments": _ensure_arguments_string(arguments)
+        }
+    }
+
+
+def _extract_tool_metadata(tool_call: Any) -> Tuple[Optional[str], Optional[str], str]:
+    """Extract (id, name, arguments) from either dict or OpenAI object."""
+    if hasattr(tool_call, "function"):
+        return (
+            getattr(tool_call, "id", None),
+            getattr(tool_call.function, "name", None),
+            _ensure_arguments_string(getattr(tool_call.function, "arguments", "{}"))
+        )
+    if isinstance(tool_call, dict):
+        function = tool_call.get("function", {})
+        return (
+            tool_call.get("id"),
+            function.get("name"),
+            _ensure_arguments_string(function.get("arguments", "{}"))
+        )
+    return (None, None, "{}")
+
+
+def _convert_messages_for_claude(messages: List[Dict[str, Any]]) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+    """Convert OpenAI-style message history into Anthropic's format."""
+    system_blocks: List[str] = []
+    claude_messages: List[Dict[str, Any]] = []
+    
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content", "")
+        
+        if role == "system":
+            if content:
+                system_blocks.append(content)
+            continue
+        
+        if role == "user":
+            claude_messages.append({
+                "role": "user",
+                "content": [{"type": "text", "text": content or ""}]
+            })
+            continue
+        
+        if role == "assistant":
+            content_blocks: List[Dict[str, Any]] = []
+            if content:
+                content_blocks.append({"type": "text", "text": content})
+            
+            for tool_call in msg.get("tool_calls") or []:
+                function = tool_call.get("function", {})
+                name = function.get("name")
+                arguments = function.get("arguments", "{}")
+                try:
+                    parsed_arguments = json.loads(arguments) if isinstance(arguments, str) else arguments
+                except json.JSONDecodeError:
+                    parsed_arguments = {"raw": arguments}
+                content_blocks.append({
+                    "type": "tool_use",
+                    "id": tool_call.get("id") or name,
+                    "name": name,
+                    "input": parsed_arguments or {}
+                })
+            
+            if not content_blocks:
+                content_blocks = [{"type": "text", "text": ""}]
+            
+            claude_messages.append({
+                "role": "assistant",
+                "content": content_blocks
+            })
+            continue
+        
+        if role == "tool":
+            claude_messages.append({
+                "role": "user",
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": msg.get("tool_call_id"),
+                    "content": msg.get("content", "")
+                }]
+            })
+    
+    system_prompt = "\n\n".join(system_blocks) if system_blocks else None
+    return system_prompt, claude_messages
+
+
+def _call_openai_llm(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]):
+    """Call OpenAI Chat Completions API."""
+    # Get model name dynamically
+    model_name = get_openai_model()
+    logger.info(f"[LLM] Using OpenAI model: {model_name}")
+    
+    # Get max_tokens from environment or use default
+    max_output_tokens = get_openai_max_output_tokens()
+    
+    try:
+        response = get_openai_client().chat.completions.create(
+            model=model_name,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=max_output_tokens
+        )
+        # Log the actual model used (OpenAI may resolve to a specific version)
+        if hasattr(response, 'model') and response.model != model_name:
+            logger.info(f"[LLM] Model resolved to: {response.model}")
+    except Exception as e:
+        # Log the error with model name for debugging
+        error_str = str(e)
+        logger.error(f"[LLM] OpenAI API call failed with model '{model_name}': {error_str}")
+        # Check if it's a model-related error
+        if 'model' in error_str.lower() and 'invalid' in error_str.lower():
+            logger.warning(f"[LLM] Model '{model_name}' may be invalid. Check available models.")
+        raise
+    message = response.choices[0].message
+    
+    tool_calls = []
+    if message.tool_calls:
+        for tc in message.tool_calls:
+            tool_calls.append(_normalize_tool_call(
+                tool_call_id=tc.id,
+                name=tc.function.name,
+                arguments=tc.function.arguments
+            ))
+    
+    message_dict = {
+        "role": message.role,
+        "content": message.content,
+    }
+    if tool_calls:
+        message_dict["tool_calls"] = tool_calls
+    
+    return message_dict, tool_calls
+
+
+def _call_claude_llm(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]):
+    """Call Anthropic Messages API with tool support."""
+    system_prompt, claude_messages = _convert_messages_for_claude(messages)
+    if not claude_messages:
+        raise ValueError("No user messages available for Claude call")
+    
+    client = get_anthropic_client()
+    request_payload: Dict[str, Any] = {
+        "model": get_claude_model(),
+        "messages": claude_messages,
+        "tools": tools,
+        "max_tokens": get_claude_max_output_tokens(),
+        "temperature": get_claude_temperature(),
+    }
+    if system_prompt:
+        request_payload["system"] = system_prompt
+    
+    response = client.messages.create(**request_payload)
+    
+    text_parts: List[str] = []
+    tool_calls = []
+    for block in response.content:
+        if block.type == "text":
+            text_parts.append(block.text)
+        elif block.type == "tool_use":
+            tool_calls.append(_normalize_tool_call(
+                tool_call_id=block.id,
+                name=block.name,
+                arguments=block.input
+            ))
+    
+    content_text = "\n".join(part.strip() for part in text_parts if part.strip())
+    message_dict = {
+        "role": "assistant",
+        "content": content_text or None,
+    }
+    if tool_calls:
+        message_dict["tool_calls"] = tool_calls
+    
+    return message_dict, tool_calls
+
+
+def _call_llm(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]):
+    """Dispatch to the appropriate LLM provider."""
+    if get_llm_provider() == "claude":
+        return _call_claude_llm(messages, tools)
+    return _call_openai_llm(messages, tools)
 
 # Tracer configuration from environment variables
 TRACER_ENABLE_CONSOLE = os.getenv("TRACER_ENABLE_CONSOLE", "true").lower() == "true"
@@ -70,6 +349,14 @@ When answering questions:
 - Provide clear, concise answers
 - Include relevant details like channel names, user names, timestamps
 - Timestamps are already formatted as human-readable dates (YYYY-MM-DD HH:MM:SS format)
+
+**CRITICAL - Channel and User ID Usage:**
+- When you call list_channels, you will receive a response with channel objects containing "id" and "name" fields
+- **ALWAYS use the EXACT "id" value from the list_channels response** - do NOT make up, guess, or hallucinate channel IDs
+- Copy the channel ID character-for-character from the tool response - channel IDs are case-sensitive and must match exactly
+- If you need to find a channel by name, call list_channels first, then find the channel with the matching name in the response, and use its exact "id" field
+- The same applies to user IDs from list_users or get_user_info - always use the exact "id" from the response
+- If a channel or user ID doesn't work, verify you copied it exactly from the tool response - do not modify or abbreviate IDs
 
 **IMPORTANT - Tool Result Handling:**
 - Check the tool result's "success" field first
@@ -118,9 +405,20 @@ def execute_tool_call(tool_call, user_id: str, channel_id: Optional[str] = None,
         Tool execution result formatted for GPT-4o
     """
     # Access attributes directly (tool_call is an object, not a dict)
-    tool_name = tool_call.function.name
-    arguments_str = tool_call.function.arguments
-    tool_call_id = tool_call.id
+    tool_call_id, tool_name, arguments_str = _extract_tool_metadata(tool_call)
+    
+    if not tool_name:
+        return {
+            "tool_call_id": tool_call_id,
+            "role": "tool",
+            "content": json.dumps({
+                "success": False,
+                "error": {
+                    "type": "invalid_tool",
+                    "message": "Tool name missing from tool call"
+                }
+            })
+        }
     
     try:
         # Parse arguments
@@ -258,7 +556,7 @@ def handle_user_query(
     user_id: str,
     channel_id: Optional[str] = None,
     thread_ts: Optional[str] = None,
-    max_iterations: int = 5
+    max_iterations: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Handle a user query using GPT-4o with function calling.
@@ -268,7 +566,7 @@ def handle_user_query(
         user_id: Slack user ID
         channel_id: Channel ID (None for DM)
         thread_ts: Thread timestamp if in a thread
-        max_iterations: Maximum number of tool call iterations
+        max_iterations: Maximum number of tool call iterations (defaults to config or 5)
     
     Returns:
         {
@@ -278,6 +576,11 @@ def handle_user_query(
             "error": Optional[str]
         }
     """
+    # Get max_iterations from environment variable dynamically
+    if max_iterations is None:
+        from .tools.config import get_max_iterations
+        max_iterations = get_max_iterations()
+    
     try:
         # Initialize tracer for this session (create new instance per session)
         from .tools.tracer import FunctionCallTracer
@@ -324,64 +627,39 @@ def handle_user_query(
         tool_calls_count = 0
         iteration = 0
         
+        tool_definitions = _get_tool_definitions_for_provider()
+        
         while iteration < max_iterations:
             iteration += 1
             
             # Log iteration start
             tracer.log_iteration_start(iteration, max_iterations)
             
-            # Call GPT-4o
-            response = get_openai_client().chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto"  # Let model decide when to use tools
-            )
-            
-            message = response.choices[0].message
+            # Call active LLM provider
+            message_dict, llm_tool_calls = _call_llm(messages, tool_definitions)
             
             # Log model response
             tracer.log_model_response(
-                content=message.content,
-                tool_calls=message.tool_calls
+                content=message_dict.get("content"),
+                tool_calls=llm_tool_calls
             )
-            
-            # Convert message object to dict format for messages list
-            # This ensures compatibility with the API on subsequent calls
-            message_dict = {
-                "role": message.role,
-                "content": message.content,
-            }
-            
-            # Add tool_calls if present (convert objects to dicts)
-            if message.tool_calls:
-                message_dict["tool_calls"] = [
-                    {
-                        "id": tc.id,
-                        "type": tc.type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        }
-                    }
-                    for tc in message.tool_calls
-                ]
             
             messages.append(message_dict)
             
             # Check if model wants to call tools
-            if message.tool_calls:
-                tool_calls_count += len(message.tool_calls)
+            if llm_tool_calls:
+                tool_calls_count += len(llm_tool_calls)
                 
                 # Execute all tool calls (tracer will log them via execute_tool_call)
-                for idx, tool_call in enumerate(message.tool_calls):
+                for idx, tool_call in enumerate(llm_tool_calls):
                     # Log function call before execution
+                    call_id, tool_name, arguments_str = _extract_tool_metadata(tool_call)
                     tracer.log_function_call(
-                        tool_name=tool_call.function.name,
-                        arguments=tool_call.function.arguments,
-                        tool_call_id=tool_call.id,
+                        tool_name=tool_name or "unknown_tool",
+                        arguments=arguments_str,
+                        tool_call_id=call_id,
                         call_index=idx + 1,
-                        total_calls=len(message.tool_calls)
+                        total_calls=len(llm_tool_calls)
                     )
                     
                     tool_result = execute_tool_call(tool_call, user_id, channel_id, tracer=tracer)
@@ -391,7 +669,7 @@ def handle_user_query(
                 continue
             else:
                 # Model has finished (no more tool calls, has final answer)
-                final_text = message.content or "I'm sorry, I couldn't generate a response."
+                final_text = message_dict.get("content") or "I'm sorry, I couldn't generate a response."
                 
                 # Log final answer
                 total_duration = time.time() - session_start_time
@@ -461,6 +739,35 @@ def format_response_for_slack(
     return text
 
 
+# Track recent responses to prevent duplicates
+from collections import defaultdict
+_response_cache: Dict[str, float] = {}
+_response_cache_ttl = 60  # 1 minute
+
+def _get_response_key(user_id: str, channel_id: str, text: str) -> str:
+    """Generate a unique key for a response to prevent duplicates."""
+    # Use first 50 chars of text + user + channel to create unique key
+    text_hash = hash(text[:50]) if text else 0
+    return f"{user_id}:{channel_id}:{text_hash}"
+
+def _is_duplicate_response(response_key: str) -> bool:
+    """Check if we've recently sent this exact response."""
+    import time
+    global _response_cache
+    
+    current_time = time.time()
+    
+    # Clean up old entries
+    _response_cache = {k: v for k, v in _response_cache.items() if current_time - v < _response_cache_ttl}
+    
+    if response_key in _response_cache:
+        logger.warning(f"[DM] Duplicate response detected, skipping: {response_key}")
+        return True
+    
+    _response_cache[response_key] = current_time
+    return False
+
+
 def handle_dm(event: Dict[str, Any], say) -> None:
     """
     Handle a direct message to the bot.
@@ -473,6 +780,7 @@ def handle_dm(event: Dict[str, Any], say) -> None:
     channel_id = event.get("channel")  # DM channel ID
     text = event.get("text", "").strip()
     thread_ts = event.get("thread_ts")
+    event_ts = event.get("ts")
     
     if not text:
         say(text="Hi! I can help you search Slack, find channels, look up users, and more. What would you like to know?")
@@ -491,14 +799,22 @@ def handle_dm(event: Dict[str, Any], say) -> None:
     # Format and send response
     response_text = format_response_for_slack(response, include_metadata=False)
     
-    # Send reply
+    # Check for duplicate response before sending
+    response_key = _get_response_key(user_id, channel_id, response_text)
+    if _is_duplicate_response(response_key):
+        logger.warning(f"[DM] Skipping duplicate response for user {user_id}")
+        return
+    
+    # Send reply (only once)
     try:
+        logger.info(f"[DM] Sending response to user {user_id} in channel {channel_id} (length: {len(response_text)} chars, event_ts: {event_ts})")
         if thread_ts:
             # Reply in thread
             say(text=response_text, thread_ts=thread_ts)
         else:
             # New message
             say(text=response_text)
+        logger.info(f"[DM] Response sent successfully")
     except Exception as e:
         logger.error(f"Error sending DM response: {e}", exc_info=True)
 
@@ -521,8 +837,9 @@ def handle_mention(event: Dict[str, Any], say) -> None:
     try:
         app = _get_bolt_app()
         if app:
-            auth_result = app.get_openai_client().auth_test()
-            if auth_result and isinstance(auth_result, dict):
+            # Use Slack API's auth_test, not OpenAI
+            auth_result = app.client.auth_test()
+            if auth_result and isinstance(auth_result, dict) and auth_result.get("ok"):
                 bot_user_id = auth_result.get("user_id")
                 if bot_user_id:
                     text = text.replace(f"<@{bot_user_id}>", "").strip()

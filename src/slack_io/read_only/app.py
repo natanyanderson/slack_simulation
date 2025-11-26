@@ -10,12 +10,36 @@ import logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from dotenv import load_dotenv
-from .artifact_server import start_server as start_artifact_server
-from .artifacts import load_artifacts
+from ..legacy.artifact_server import start_server as start_artifact_server
+from ..legacy.artifacts import load_artifacts
 from .event_handlers import register_event_handlers
 
-# Load environment variables from .env file (same tokens as API app)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+# Load environment variables (allow overriding .env via ENV_FILE)
+project_root = os.path.join(os.path.dirname(__file__), "..", "..")
+env_filename = os.getenv("ENV_FILE", ".env")
+env_path = os.path.join(project_root, env_filename)
+
+if not os.path.exists(env_path):
+    # fallback to default .env if requested file missing
+    env_path = os.path.join(project_root, ".env")
+
+# Load the primary .env file first
+load_dotenv(env_path)
+
+# If ENV_FILE is explicitly set, use it (already loaded above)
+# Otherwise, check for provider-specific .env files and load them to override settings
+# Priority: .env.openai > .env.claude (if both exist, .env.openai takes precedence)
+if env_filename not in [".env.claude", ".env.openai"]:
+    # Check for .env.openai first (OpenAI takes precedence if both exist)
+    openai_env_path = os.path.join(project_root, ".env.openai")
+    if os.path.exists(openai_env_path):
+        load_dotenv(openai_env_path, override=True)
+    
+    # Then check for .env.claude (only if .env.openai doesn't exist)
+    if not os.path.exists(openai_env_path):
+        claude_env_path = os.path.join(project_root, ".env.claude")
+        if os.path.exists(claude_env_path):
+            load_dotenv(claude_env_path, override=True)  # override=True means .env.claude values take precedence
 
 # Configure logging level (default to INFO to reduce noise, use DEBUG for troubleshooting)
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -76,6 +100,13 @@ logging.info("Loaded artifacts from disk")
 start_artifact_server()
 
 logging.info("JSON-only app initialized - read-only assistant active")
+
+# Log LLM configuration at startup
+from .assistant import get_llm_provider, get_openai_model, get_claude_model, get_model_name
+llm_provider = get_llm_provider()
+model_name = get_model_name()
+logging.info(f"[startup] LLM Provider: {llm_provider}")
+logging.info(f"[startup] LLM Model: {model_name}")
 
 
 def run_socket_mode(workspace_name: str = None):

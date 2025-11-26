@@ -3,8 +3,8 @@ import os
 import json
 import time
 from dotenv import load_dotenv
-from src.slack_io.slack_client import app
-from src.slack_io.persona_registry import CHANNEL_NAME_TO_ID
+from src.slack_io.shared.slack_client import app
+from src.slack_io.autonomous.persona_registry import CHANNEL_NAME_TO_ID
 
 # Load .env file (SLACK_BOT_TOKEN)
 load_dotenv()

@@ -12,6 +12,8 @@ PLANNING_SYSTEM_PROMPT = """You have access to Slack read-only tools. When answe
 
 1. **Channel Resolution**: If the user mentions a channel by name (e.g., "#frontend"), first call list_channels 
    to find the channel ID, then use that ID in other calls.
+   **CRITICAL**: You MUST use the EXACT "id" value from the list_channels response. Copy it character-for-character.
+   Do NOT make up, guess, or modify channel IDs - they must match exactly what is returned in the tool response.
 
 2. **User Resolution**: If you need user information but only have a name, use search_messages or list_users 
    to find the user ID first.
@@ -22,11 +24,12 @@ PLANNING_SYSTEM_PROMPT = """You have access to Slack read-only tools. When answe
    - Then: get_user_info (to resolve user IDs to names if needed)
 
 4. **Search Strategy**: 
-   - **IMPORTANT**: The search_messages API requires a user token and may fail with bot tokens.
-   - If search_messages fails, use an alternative approach: list_channels to find relevant channels, 
-     then use get_channel_history on those channels to search manually
-   - For search queries, try search_messages first, but if it fails with "not_allowed_token_type" 
-     or "missing_scope", fall back to searching specific channels using get_channel_history
+   - **PREFERRED**: Use search_messages for finding messages by topic, keywords, or phrases across all channels.
+   - search_messages is the best tool for queries like "find messages about X" or "search for Y".
+   - **IMPORTANT**: In JSON mode, search_messages always works. In API mode, it may require a user token.
+   - If search_messages fails in API mode with "not_allowed_token_type" or "missing_scope", 
+     fall back to searching specific channels using get_channel_history
+   - Only use get_channel_history when you need ALL messages from a specific channel, not when searching for topics
    
    **Search Query Tips**:
    - For exact phrases (like "prioritizing the payment gateway tests"), the system will automatically 

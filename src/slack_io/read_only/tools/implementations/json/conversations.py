@@ -153,9 +153,17 @@ def get_channel_history(
         # Sort by timestamp (descending - most recent first, like Slack API)
         messages.sort(key=lambda m: float(m.get("ts", "0")), reverse=True)
         
-        # Apply limit
-        limit, _ = validate_limit(limit or 50, "conversations.history", default=50)
-        messages = messages[:limit]
+        # In JSON mode, we have all the data, so only apply limit if explicitly requested
+        # Otherwise return all messages (no artificial limits)
+        if limit is not None:
+            # Validate limit but allow much higher values for JSON mode
+            # Cap at 100,000 for JSON mode (vs 200 for API mode)
+            if limit < 1:
+                limit = 50
+            elif limit > 100000:
+                limit = 100000
+            messages = messages[:limit]
+        # If no limit specified, return all messages (JSON mode advantage)
         
         # Format timestamps
         formatted_messages = format_messages_timestamps(messages)

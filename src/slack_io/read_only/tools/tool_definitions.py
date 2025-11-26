@@ -47,9 +47,9 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "Maximum number of messages to return (default: 50, max: 200)",
+                        "description": "Maximum number of messages to return (default: 50). In JSON mode, can return up to 100,000 messages. If not specified in JSON mode, returns all messages in the channel.",
                         "minimum": 1,
-                        "maximum": 200
+                        "maximum": 100000
                     },
                     "oldest": {
                         "type": "string",
@@ -177,7 +177,7 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "search_messages",
-            "description": "⚠️ LIMITATION: This tool requires a user token and may not work with bot tokens. If it fails, use get_channel_history on specific channels instead. Search for messages in the workspace. IMPORTANT: For exact phrase matching (3+ words), wrap phrases in double quotes. The system will automatically optimize queries for best results. Examples: '\"exact phrase\"', 'payment gateway', 'from:@username', 'in:#channel'.",
+            "description": "PREFERRED TOOL for finding messages by topic, keywords, or phrases across all channels. Search for messages in the workspace. IMPORTANT: For exact phrase matching (3+ words), wrap phrases in double quotes. The system will automatically optimize queries for best results. Examples: '\"exact phrase\"', 'payment gateway', 'from:@username', 'in:#channel'. Use this instead of get_channel_history when searching for specific topics or keywords. NOTE: In JSON mode, this always works. In API mode, if it fails with token errors, fall back to get_channel_history on specific channels.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -197,9 +197,9 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                     },
                     "count": {
                         "type": "integer",
-                        "description": "Maximum number of results to return (default: 20, max: 100)",
+                        "description": "Maximum number of results to return (default: 20). In JSON mode, can return up to 10,000 results.",
                         "minimum": 1,
-                        "maximum": 100
+                        "maximum": 10000
                     },
                     "page": {
                         "type": "integer",
@@ -221,7 +221,130 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                 "properties": {}
             }
         }
+    },
+    # ============================================================================
+    # CUSTOM ANALYTICS TOOLS (NOT SLACK API METHODS)
+    # ============================================================================
+    # These tools are custom implementations for batch processing and incremental
+    # aggregation. They are NOT part of the official Slack API, but provide
+    # enhanced capabilities for analyzing exported JSON data across multiple
+    # channels and maintaining context across multiple conversation turns.
+    # ============================================================================
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_channels_batch",
+            "description": "[CUSTOM TOOL - NOT SLACK API] Analyze multiple channels in batch and return aggregated statistics. Use this for efficient batch processing when you need to analyze many channels. Supports: thread_count (count threads with replies), message_count (count messages per user), user_activity (list users who posted), daily_activity (messages per day), user_channels (which channels each user posted in), thread_depth (average thread depth), engagement_rate (replies per message ratio).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "channels": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of channel IDs to analyze"
+                    },
+                    "analysis_type": {
+                        "type": "string",
+                        "enum": ["thread_count", "message_count", "user_activity", "daily_activity", "user_channels", "thread_depth", "engagement_rate"],
+                        "description": "Type of analysis: 'thread_count' (count threads with replies), 'message_count' (count messages per user), 'user_activity' (list users who posted), 'daily_activity' (messages per day), 'user_channels' (which channels each user posted in), 'thread_depth' (average thread depth), 'engagement_rate' (replies per message ratio)"
+                    },
+                    "oldest": {
+                        "type": "string",
+                        "description": "Optional: Only analyze messages after this Unix timestamp"
+                    },
+                    "latest": {
+                        "type": "string",
+                        "description": "Optional: Only analyze messages before this Unix timestamp"
+                    }
+                },
+                "required": ["channels", "analysis_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "store_aggregation_results",
+            "description": "[CUSTOM TOOL - NOT SLACK API] Store aggregated results from analyze_channels_batch for later retrieval and merging. Use this to build up results across multiple turns. Set merge=true to combine with existing stored results.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "User ID (from the conversation context - use the user_id from the query)"
+                    },
+                    "analysis_type": {
+                        "type": "string",
+                        "description": "Type of analysis (must match what was used in analyze_channels_batch)"
+                    },
+                    "results": {
+                        "type": "object",
+                        "description": "Results object from analyze_channels_batch (the entire response data object)"
+                    },
+                    "merge": {
+                        "type": "boolean",
+                        "description": "If true, merge with existing stored results; if false, replace existing results"
+                    }
+                },
+                "required": ["user_id", "analysis_type", "results"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_aggregation_results",
+            "description": "[CUSTOM TOOL - NOT SLACK API] Retrieve previously stored aggregation results. Use this to continue analysis from a previous turn or to retrieve results stored earlier in the conversation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "User ID (from the conversation context - use the user_id from the query)"
+                    },
+                    "analysis_type": {
+                        "type": "string",
+                        "description": "Type of analysis to retrieve (must match what was used when storing)"
+                    }
+                },
+                "required": ["user_id", "analysis_type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "merge_and_rank_results",
+            "description": "[CUSTOM TOOL - NOT SLACK API] Retrieve stored results and return them ranked by a specified field. Use this to get a leaderboard of channels after processing multiple batches. Ranking fields depend on analysis_type (e.g., 'threads_with_replies', 'total_messages', 'engagement_rate_percent', 'average_thread_depth').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "description": "User ID (from the conversation context - use the user_id from the query)"
+                    },
+                    "analysis_type": {
+                        "type": "string",
+                        "description": "Type of analysis to rank (must match what was used when storing)"
+                    },
+                    "ranking_field": {
+                        "type": "string",
+                        "description": "Field to rank by (e.g., 'threads_with_replies', 'total_messages', 'engagement_rate_percent', 'average_thread_depth', 'user_count'). The field must exist in the stored results."
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "Number of top results to return (default: 10, max: 100)",
+                        "minimum": 1,
+                        "maximum": 100
+                    }
+                },
+                "required": ["user_id", "analysis_type"]
+            }
+        }
     }
+    # ============================================================================
+    # END OF CUSTOM ANALYTICS TOOLS
+    # ============================================================================
 ]
 
 
@@ -234,7 +357,12 @@ TOOL_TO_ENDPOINT: Dict[str, str] = {
     "get_user_info": "users.info",
     "list_users": "users.list",
     "search_messages": "search.messages",
-    "get_team_info": "team.info"
+    "get_team_info": "team.info",
+    # Custom analytics tools (not Slack API methods - placeholder endpoints)
+    "analyze_channels_batch": "custom.analytics.batch",
+    "store_aggregation_results": "custom.analytics.store",
+    "get_aggregation_results": "custom.analytics.get",
+    "merge_and_rank_results": "custom.analytics.rank"
 }
 
 
@@ -255,7 +383,12 @@ def _get_implementation_path():
             "get_user_info": ("implementations.json.users", "get_user_info"),
             "list_users": ("implementations.json.users", "list_users"),
             "search_messages": ("implementations.json.search", "search_messages"),
-            "get_team_info": ("implementations.json.files", "get_team_info")
+            "get_team_info": ("implementations.json.files", "get_team_info"),
+            # Custom analytics tools (JSON mode only)
+            "analyze_channels_batch": ("implementations.json.analytics", "analyze_channels_batch"),
+            "store_aggregation_results": ("implementations.json.analytics", "store_aggregation_results"),
+            "get_aggregation_results": ("implementations.json.analytics", "get_aggregation_results"),
+            "merge_and_rank_results": ("implementations.json.analytics", "merge_and_rank_results")
         }
     else:
         # Use API implementations (default)

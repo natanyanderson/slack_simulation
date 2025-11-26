@@ -123,12 +123,13 @@ def search_messages(
         # Optimize query (same as API implementation)
         optimized_query = optimize_search_query(query)
         
-        # Validate count
+        # Validate count - in JSON mode, allow much higher limits
         count = count or 20
         if count < 1:
             count = 20
-        if count > 100:
-            count = 100
+        # JSON mode: allow up to 10,000 results (vs 100 for API mode)
+        if count > 10000:
+            count = 10000
         
         # Validate sort
         if sort not in ["score", "timestamp"]:
@@ -141,17 +142,30 @@ def search_messages(
         loader = get_loader()
         
         # Try to use compiled_messages.json first (faster, all messages in one place)
-        compiled_messages = loader.load_compiled_messages()
+        # Use streaming to avoid loading entire file into memory
+        all_messages = []
         
-        if compiled_messages:
-            # Use compiled_messages.json as primary source
-            all_messages = compiled_messages
-            # Note: compiled_messages.json may not have channel info in each message
-            # We'll add it if we can infer it, but search will work without it
-        else:
-            # Fallback: Load from per-channel directories
+        try:
+            # Use streaming to process messages incrementally
+            # Note: We still collect all messages for search, but we do it incrementally
+            # This is better than loading everything at once with json.load()
+            compiled_messages_stream = loader.stream_compiled_messages()
+            for msg in compiled_messages_stream:
+                all_messages.append(msg)
+        except Exception as e:
+            # Streaming failed, try fallback to regular loading (with warnings)
+            print(f"Streaming failed, trying fallback: {e}")
+            try:
+                compiled_messages = loader.load_compiled_messages()
+                if compiled_messages:
+                    all_messages = compiled_messages
+            except Exception as e2:
+                print(f"Fallback loading also failed: {e2}")
+                all_messages = []
+        
+        # If no messages from compiled file, fallback to per-channel directories
+        if not all_messages:
             channel_names = loader.get_all_channel_names()
-            all_messages = []
             for channel_name in channel_names:
                 messages = loader.load_channel_messages(channel_name)
                 # Add channel info to each message for context

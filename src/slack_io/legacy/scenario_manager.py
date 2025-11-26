@@ -5,10 +5,10 @@ import yaml
 import os
 import random
 from typing import Dict, List, Optional
-from .persona_registry import PERSONAS, CHANNEL_NAME_TO_ID
-from .user_registry import load_user_personas
-from .slack_user_post import user_post_message
-from .agent_engine import generate_reply
+from ..autonomous.persona_registry import PERSONAS, CHANNEL_NAME_TO_ID
+from ..autonomous.user_registry import load_user_personas
+from ..autonomous.slack_user_post import user_post_message
+from ..autonomous.agent_engine import generate_reply
 
 USER_PERSONAS = load_user_personas()
 

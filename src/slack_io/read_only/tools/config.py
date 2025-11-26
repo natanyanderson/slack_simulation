@@ -5,9 +5,10 @@ import os
 from typing import Dict, Any, Optional
 from .workspace_config import get_workspace_paths
 
-ALLOWLIST_PATH = os.path.join(
-    os.path.dirname(__file__), '..', '..', '..', 'read_only_methods.json'
-)
+# Get project root (4 levels up from this file: tools -> read_only -> slack_io -> src -> project_root)
+_config_dir = os.path.dirname(os.path.abspath(__file__))
+_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_config_dir))))
+ALLOWLIST_PATH = os.path.join(_project_root, 'read_only_methods.json')
 
 def _get_json_export_path() -> str:
     """Get JSON export path from workspace config or environment variable."""
@@ -39,6 +40,10 @@ def get_data_source_type() -> str:
     """Get data source type dynamically from environment variable."""
     return os.getenv("SLACK_DATA_SOURCE", "api")
 
+def get_max_iterations() -> int:
+    """Get max_iterations dynamically from environment variable."""
+    return int(os.getenv("MAX_ITERATIONS", "10"))
+
 TOOL_CONFIG: Dict[str, Any] = {
     "idempotency": {  # Fixed typo: was "idemptotency"
         "enabled": True,
@@ -46,12 +51,13 @@ TOOL_CONFIG: Dict[str, Any] = {
         "cache_size": 1000,
     },
     "truncation": {
-        "max_items": 50,
+        "max_items": 200,  # Increased to allow more channels
         "max_tokens": 2000,
         "strategy": "smart"
     },
     "planning": {
-        "max_steps": 5,
+        "max_steps": 10,  # Maximum steps for explicit planning validation
+        # Note: max_iterations is read dynamically to allow .env changes without restart
         "enable_explicit_planning": False
     },
     "logging": {
@@ -111,10 +117,26 @@ SLACK_LIMITS = {
 def load_allowlist() -> Dict[str, Any]:
     """Load the read-only methods allowlist from JSON file."""
     import json
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        # Log the path being used for debugging
+        logger.debug(f"Loading allowlist from: {ALLOWLIST_PATH}")
+        logger.debug(f"Allowlist file exists: {os.path.exists(ALLOWLIST_PATH)}")
+        
         with open(ALLOWLIST_PATH, 'r') as f:
-            return json.load(f)
+            allowlist = json.load(f)
+            methods_count = len(allowlist.get("methods", []))
+            logger.info(f"Loaded allowlist with {methods_count} methods from {ALLOWLIST_PATH}")
+            return allowlist
     except FileNotFoundError:
         # Fallback: return empty allowlist if file not found
+        logger.error(f"Allowlist file not found at: {ALLOWLIST_PATH}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        logger.error(f"Config file location: {os.path.abspath(__file__)}")
+        return {"methods": []}
+    except Exception as e:
+        logger.error(f"Error loading allowlist from {ALLOWLIST_PATH}: {e}")
         return {"methods": []}
 

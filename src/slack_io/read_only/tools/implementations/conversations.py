@@ -3,7 +3,7 @@ Conversations API implementations.
 """
 from typing import Dict, Any, Optional, List
 from slack_sdk.errors import SlackApiError
-from ...slack_client import app as bolt_app
+from ....shared.slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
 from ..validators import validate_channel_id, validate_limit
 from ..cache import set_channel_id, get_channel_id

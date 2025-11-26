@@ -5,7 +5,7 @@ Future: Add file operations here.
 """
 from typing import Dict, Any
 from slack_sdk.errors import SlackApiError
-from ...slack_client import app as bolt_app
+from ....shared.slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
 
 

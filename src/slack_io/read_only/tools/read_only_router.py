@@ -40,9 +40,20 @@ class ReadOnlyRouter:
         """Initialize the router."""
         self.allowlist = load_allowlist()
         self.allowed_methods = set(self.allowlist.get("methods", []))
+        logger.info(f"Router initialized with {len(self.allowed_methods)} allowed methods")
+        # Log a few examples to verify loading
+        if len(self.allowed_methods) > 0:
+            sample_methods = list(self.allowed_methods)[:5]
+            logger.debug(f"Sample allowed methods: {sample_methods}")
+        else:
+            logger.warning("WARNING: Allowlist is empty! No methods will be allowed.")
+            logger.warning("This usually means the allowlist file was not found or is empty.")
     
     def is_allowed(self, endpoint: str) -> bool:
         """Check if an endpoint is in the allowlist."""
+        # Custom tools (starting with "custom.") are always allowed
+        if endpoint.startswith("custom."):
+            return True
         return endpoint in self.allowed_methods
     
     def resolve_channel_name(self, channel_name: str) -> Optional[str]:
@@ -106,6 +117,8 @@ class ReadOnlyRouter:
         
         # Check allowlist
         if not self.is_allowed(endpoint):
+            logger.warning(f"Endpoint '{endpoint}' not in allowlist. Total allowed methods: {len(self.allowed_methods)}")
+            logger.debug(f"Looking for '{endpoint}' in allowlist. Sample methods: {list(self.allowed_methods)[:10]}")
             return create_error_response(
                 "not_allowed",
                 f"Endpoint '{endpoint}' is not in the allowlist",
@@ -220,8 +233,17 @@ class ReadOnlyRouter:
                 if items_key:
                     items = result["data"].get(items_key)
                     if items is not None:
+                        # Skip truncation for list_channels - channels are small and users need to see all
+                        if tool_name == "list_channels":
+                            # Don't truncate channels, just update meta
+                            result["data"]["meta"].update({
+                                "total": len(items),
+                                "truncated": False,
+                                "items_shown": len(items),
+                                "items_total": len(items)
+                            })
                         # Handle different response structures
-                        if tool_name == "search_messages":
+                        elif tool_name == "search_messages":
                             # Search results have a nested structure: messages.matches
                             if isinstance(items, dict) and "matches" in items:
                                 matches = items["matches"]

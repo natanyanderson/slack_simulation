@@ -3,14 +3,58 @@ import os, re
 import numpy as np
 from typing import List, Dict, Set
 from openai import OpenAI
-from .slack_client import app as bolt_app
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL = os.getenv("MODEL_NAME", "gpt-4o-mini")
+try:
+    from anthropic import Anthropic
+except ImportError:
+    Anthropic = None
+
+from ..shared.slack_client import app as bolt_app
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
+OPENAI_MODEL = os.getenv("MODEL_NAME", "gpt-4o-mini")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+OPENAI_TEMPERATURE = float(os.getenv("OPENAI_AGENT_TEMPERATURE", "0.9"))
+OPENAI_PRESENCE_PENALTY = float(os.getenv("OPENAI_AGENT_PRESENCE_PENALTY", "0.6"))
+OPENAI_FREQUENCY_PENALTY = float(os.getenv("OPENAI_AGENT_FREQUENCY_PENALTY", "0.3"))
+CLAUDE_TEMPERATURE = float(os.getenv("CLAUDE_AGENT_TEMPERATURE", "0.9"))
+CLAUDE_MAX_OUTPUT_TOKENS = int(os.getenv("CLAUDE_AGENT_MAX_TOKENS", "400"))
+MAX_AGENT_TOKENS = int(os.getenv("AGENT_MAX_TOKENS", "200"))
+ENABLE_EMBEDDING_CHECKS = os.getenv("ENABLE_EMBEDDING_CHECKS", "true").lower() == "true"
+USE_EMBEDDINGS = ENABLE_EMBEDDING_CHECKS and LLM_PROVIDER != "claude"
+
+_openai_client = None
+_anthropic_client = None
+
+
+def get_openai_client():
+    """Lazy-load OpenAI client."""
+    global _openai_client
+    if _openai_client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not set in environment variables")
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
+
+
+def get_anthropic_client():
+    """Lazy-load Anthropic client."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        if Anthropic is None:
+            raise ImportError("anthropic package is required when LLM_PROVIDER=claude. Install with `pip install anthropic`.")
+        api_key = os.getenv("CLAUDE_API_KEY")
+        if not api_key:
+            raise ValueError("CLAUDE_API_KEY not set in environment variables")
+        _anthropic_client = Anthropic(api_key=api_key)
+    return _anthropic_client
 
 def get_embedding(text: str) -> List[float]:
-    """Get embedding for text"""
-    response = client.embeddings.create(
+    """Get embedding for text (OpenAI only)."""
+    if not USE_EMBEDDINGS:
+        raise RuntimeError("Embedding checks are disabled for this provider")
+    response = get_openai_client().embeddings.create(
         model="text-embedding-3-small",
         input=text
     )
@@ -19,6 +63,45 @@ def get_embedding(text: str) -> List[float]:
 def cosine_similarity(a: List[float], b: List[float]) -> float:
     """Calculate cosine similarity between two embeddings"""
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def _call_openai_chat(system_prompt: str, user_prompt: str, max_tokens: int = MAX_AGENT_TOKENS) -> str:
+    """Call OpenAI chat completion."""
+    response = get_openai_client().chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        temperature=OPENAI_TEMPERATURE,
+        presence_penalty=OPENAI_PRESENCE_PENALTY,
+        frequency_penalty=OPENAI_FREQUENCY_PENALTY,
+        max_tokens=max_tokens,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def _call_claude_chat(system_prompt: str, user_prompt: str, max_tokens: int = MAX_AGENT_TOKENS) -> str:
+    """Call Anthropic Claude messages API."""
+    client = get_anthropic_client()
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}],
+        temperature=CLAUDE_TEMPERATURE,
+        max_tokens=min(max_tokens, CLAUDE_MAX_OUTPUT_TOKENS),
+    )
+    text_parts = [block.text for block in response.content if getattr(block, "type", "") == "text"]
+    return "\n".join(part.strip() for part in text_parts if part.strip())
+
+
+def _call_model(system_prompt: str, user_prompt: str, max_tokens: int = MAX_AGENT_TOKENS) -> str:
+    """Dispatch to selected LLM provider."""
+    if LLM_PROVIDER == "claude":
+        return _call_claude_chat(system_prompt, user_prompt, max_tokens=max_tokens)
+    return _call_openai_chat(system_prompt, user_prompt, max_tokens=max_tokens)
+
+
+def call_agent_model(system_prompt: str, user_prompt: str, max_tokens: int = MAX_AGENT_TOKENS) -> str:
+    """Public helper for other modules (e.g., seed scheduler) to call the agent LLM."""
+    return _call_model(system_prompt, user_prompt, max_tokens=max_tokens)
 
 def detect_new_entities(text: str, prior_texts: List[str]) -> int:
     """Detect if new technical entities are present (simplified heuristic)"""
@@ -141,18 +224,19 @@ def too_similar(new_txt: str, recent_txts: List[str]) -> bool:
         return True
     
     # Optional: cosine similarity on embeddings (> 0.90 → block)
-    try:
-        new_embedding = get_embedding(new_txt)
-        for r in recent_txts:
-            if not r.strip():
-                continue
-            r_embedding = get_embedding(r)
-            cosine_sim = cosine_similarity(new_embedding, r_embedding)
-            if cosine_sim > 0.90:
-                return True
-    except Exception:
-        # If embedding fails, continue
-        pass
+    if USE_EMBEDDINGS:
+        try:
+            new_embedding = get_embedding(new_txt)
+            for r in recent_txts:
+                if not r.strip():
+                    continue
+                r_embedding = get_embedding(r)
+                cosine_sim = cosine_similarity(new_embedding, r_embedding)
+                if cosine_sim > 0.90:
+                    return True
+        except Exception:
+            # If embedding fails, continue
+            pass
     
     return False
 
@@ -200,7 +284,7 @@ def persona_system_prompt(persona_name: str, persona_cfg: dict) -> str:
 
 def find_relevant_artifacts(context: str, limit: int = 2) -> str:
     """Find relevant artifacts for grounding based on context keywords"""
-    from .artifacts import search_artifacts
+    from ..legacy.artifacts import search_artifacts
     
     # Extract potential keywords from context
     keywords = context.lower().split()
@@ -362,15 +446,7 @@ def generate_reply(persona_name: str, channel_name: str, channel_id: str, event_
     extra_guidance = _get_role_guidance(persona_cfg.get("role", ""))
     up = build_user_prompt(channel_name, event_text, ctx_txt, is_thread=bool(thread_ts), extra_guidance=extra_guidance, phase_context=phase_context)
 
-    resp = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role":"system","content":sys},{"role":"user","content":up}],
-        temperature=0.9,  # Higher temperature for creative, varied responses
-        presence_penalty=0.6,  # Penalize repetitive topics/concepts
-        frequency_penalty=0.3,  # Penalize word/token repetition
-        max_tokens=200,  # More room for natural expression
-    )
-    text = resp.choices[0].message.content.strip()
+    text = _call_model(sys, up, max_tokens=MAX_AGENT_TOKENS)
     
     # Validation: For threaded replies, check if strict rules are followed
     if thread_ts:
@@ -382,15 +458,7 @@ def generate_reply(persona_name: str, channel_name: str, channel_id: str, event_
         if not has_reference or not has_novelty:
             # Retry with even stricter enforcement
             up_strict = up + "\n\n[MANDATORY - REGENERATE WITH BOTH]:\n1. INCLUDE [[ref:TIMESTAMP]] citation from recent messages.\n2. ADD NEW CONTENT: datum, step, decision, or blocking question.\nYour previous attempt was missing required elements."
-            resp = client.chat.completions.create(
-                model=MODEL,
-                messages=[{"role":"system","content":sys},{"role":"user","content":up_strict}],
-                temperature=0.9,
-                presence_penalty=0.6,
-                frequency_penalty=0.3,
-                max_tokens=200,
-            )
-            text = resp.choices[0].message.content.strip()
+            text = _call_model(sys, up_strict, max_tokens=MAX_AGENT_TOKENS)
     
     # Anti-parrot filter: check for excessive similarity to recent messages
     if thread_ts and len(ctx_msgs) > 0:
@@ -398,15 +466,7 @@ def generate_reply(persona_name: str, channel_name: str, channel_id: str, event_
         if too_similar(text, recent_texts):
             # Regenerate with explicit forward-motion instruction
             up_retry = up + "\n\nCRITICAL: Avoid repeating earlier wording; move the task forward by adding one concrete next step with an owner and time."
-            resp = client.chat.completions.create(
-                model=MODEL,
-                messages=[{"role":"system","content":sys},{"role":"user","content":up_retry}],
-                temperature=0.9,
-                presence_penalty=0.6,
-                frequency_penalty=0.3,
-                max_tokens=200,
-            )
-            text = resp.choices[0].message.content.strip()
+            text = _call_model(sys, up_retry, max_tokens=MAX_AGENT_TOKENS)
 
     # Semantic similarity check: compare against last 6 messages
     if thread_ts and len(ctx_msgs) > 0:
@@ -414,33 +474,29 @@ def generate_reply(persona_name: str, channel_name: str, channel_id: str, event_
         
         # Check for new entities
         new_entity_count = detect_new_entities(text, prior_texts)
+        regenerate = new_entity_count == 0
         
-        # Compute semantic similarity
-        try:
-            text_embedding = get_embedding(text)
-            max_similarity = 0.0
-            
-            for prior_text in prior_texts:
-                if prior_text.strip():
-                    prior_embedding = get_embedding(prior_text)
-                    similarity = cosine_similarity(text_embedding, prior_embedding)
-                    max_similarity = max(max_similarity, similarity)
-            
-            # Regenerate if too similar warning no new entities
-            if max_similarity > 0.90 or new_entity_count == 0:
-                up_semantic = up + "\n\nCRITICAL: Do not repeat prior phrasing; propose a next concrete step."
-                resp = client.chat.completions.create(
-                    model=MODEL,
-                    messages=[{"role":"system","content":sys},{"role":"user","content":up_semantic}],
-                    temperature=0.9,
-                    presence_penalty=0.6,
-                    frequency_penalty=0.3,
-                    max_tokens=200,
-                )
-                text = resp.choices[0].message.content.strip()
-        except Exception as e:
-            # If embedding fails, continue with original text
-            print(f"[agent_engine] Embedding check failed: {e}")
+        # Compute semantic similarity if embeddings are enabled
+        if USE_EMBEDDINGS:
+            try:
+                text_embedding = get_embedding(text)
+                max_similarity = 0.0
+                
+                for prior_text in prior_texts:
+                    if prior_text.strip():
+                        prior_embedding = get_embedding(prior_text)
+                        similarity = cosine_similarity(text_embedding, prior_embedding)
+                        max_similarity = max(max_similarity, similarity)
+                
+                if max_similarity > 0.90:
+                    regenerate = True
+            except Exception as e:
+                # If embedding fails, continue with original text
+                print(f"[agent_engine] Embedding check failed: {e}")
+        
+        if regenerate:
+            up_semantic = up + "\n\nCRITICAL: Do not repeat prior phrasing; propose a next concrete step."
+            text = _call_model(sys, up_semantic, max_tokens=MAX_AGENT_TOKENS)
     
     # Extract citations from text
     citations = REF_RE.findall(text)

@@ -1,6 +1,6 @@
 import random
 from typing import Dict, Any
-from .slack_client import post_message
+from ..shared.slack_client import post_message
 
 PERSONAS = {
     "Gabriella_PM": ("Gabriella_PM", ":memo:"),

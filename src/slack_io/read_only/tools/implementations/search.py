@@ -3,7 +3,7 @@ Search API implementations.
 """
 from typing import Dict, Any, Optional
 from slack_sdk.errors import SlackApiError
-from ...slack_client import app as bolt_app
+from ....shared.slack_client import app as bolt_app
 from ..error_handler import normalize_slack_error, create_error_response
 from ..timestamp_formatter import format_message_timestamps
 from ..query_optimizer import optimize_search_query, validate_search_result
